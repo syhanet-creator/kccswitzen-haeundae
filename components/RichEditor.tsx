@@ -8,8 +8,8 @@ import { TextStyle, FontSize, FontFamily } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
 import Highlight from "@tiptap/extension-highlight";
 import Placeholder from "@tiptap/extension-placeholder";
-import { TableRow, TableHeader, TableCell } from "@tiptap/extension-table";
-import { RichTable, ALIGNS, BORDER_COLORS, BORDER_STYLES, BORDER_WIDTHS, currentTableEl, type TableAlign } from "@/lib/richTable";
+import { TableHeader, TableCell } from "@tiptap/extension-table";
+import { RichTable, RichTableRow, ALIGNS, BORDER_COLORS, BORDER_STYLES, BORDER_WIDTHS, currentTableEl, type TableAlign } from "@/lib/richTable";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import CharacterCount from "@tiptap/extension-character-count";
@@ -114,7 +114,8 @@ function TablePanel({ editor }: { editor: Editor }) {
         </span>
       </div>
       <p className="text-xs leading-relaxed text-gray-400">
-        표 안에서 <b>Ctrl+A</b>로 표 전체를 선택한 뒤 <b>Ctrl+←/→</b> 폭, <b>Ctrl+↑/↓</b> 높이를 조절할 수 있습니다.
+        표 안에서 <b>Ctrl+←/→</b>는 커서가 있는(또는 선택한) 열의 너비, <b>Ctrl+↑/↓</b>는 행의 높이를 조절합니다.
+        <b>Ctrl+A</b>로 표 전체를 선택한 뒤에는 표 전체 크기가 바뀝니다.
         &lsquo;글자처럼 취급&rsquo;은 본문 폭에 맞춰 문단처럼 놓이고, 둘러싸기는 표 옆으로 글이 흐릅니다.
       </p>
     </div>
@@ -159,7 +160,7 @@ export default function RichEditor({ userId, onReady, onChange, onError }: Props
       Highlight.configure({ multicolor: true }),
       Placeholder.configure({ placeholder: "내용을 입력하세요. 사진은 끌어다 놓거나 붙여넣을 수 있습니다." }),
       RichTable.configure({ resizable: false }),
-      TableRow, TableHeader, TableCell,
+      RichTableRow, TableHeader, TableCell,
       TaskList,
       TaskItem.configure({ nested: true }),
       CharacterCount.configure({ limit: MAX_CHARS }),
