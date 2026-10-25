@@ -8,12 +8,14 @@ import { TextStyle, FontSize, FontFamily } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
 import Highlight from "@tiptap/extension-highlight";
 import Placeholder from "@tiptap/extension-placeholder";
-import { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table";
+import { TableRow, TableHeader, TableCell } from "@tiptap/extension-table";
+import { RichTable, ALIGNS, BORDER_COLORS, BORDER_STYLES, BORDER_WIDTHS, currentTableEl, type TableAlign } from "@/lib/richTable";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import CharacterCount from "@tiptap/extension-character-count";
 import { checkFile, uploadFile } from "@/lib/upload";
 import { FONTS, cssOf, fontOfCss } from "@/lib/fonts";
+import SymbolPicker from "@/components/SymbolPicker";
 
 const MAX_CHARS = 20000;
 const COLORS = ["#111827", "#dc2626", "#ea580c", "#ca8a04", "#16a34a", "#2563eb", "#7c3aed", "#db2777"];
@@ -60,10 +62,71 @@ function Swatches({ label, colors, onPick, onClear }: { label: string; colors: s
   );
 }
 
+/** 표 속성: 테두리 모양·굵기·색, 배치, 너비·높이 */
+function TablePanel({ editor }: { editor: Editor }) {
+  const a = editor.getAttributes("table") as Record<string, unknown>;
+  const set = (attrs: Record<string, unknown>) => editor.chain().focus().updateAttributes("table", attrs).run();
+  const num = (v: unknown) => (typeof v === "number" ? Math.round(v) : "");
+  const setAlign = (al: TableAlign) => {
+    const attrs: Record<string, unknown> = { tbAlign: al };
+    // 정렬·둘러싸기는 표가 본문보다 좁아야 눈에 보이므로 폭이 없으면 60%로 줄인다.
+    if (al !== "inline" && !a.tbWidth) attrs.tbWidth = Math.round((currentTableEl(editor)?.offsetWidth ?? 600) * 0.6);
+    set(attrs);
+  };
+  const sel = "h-9 rounded-lg border border-gray-200 bg-white px-2 text-sm";
+  return (
+    <div className="mt-2 grid gap-3 rounded-xl bg-slate-50 p-3 text-sm">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <label className="flex items-center gap-2">테두리
+          <select aria-label="테두리 모양" className={sel} value={(a.tbBorderStyle as string) ?? "solid"} onChange={(ev) => set({ tbBorderStyle: ev.target.value })}>
+            {BORDER_STYLES.map(([v, n]) => <option key={v} value={v}>{n}</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-2">굵기
+          <select aria-label="테두리 굵기" className={sel} value={(a.tbBorderWidth as number) ?? 1} onChange={(ev) => set({ tbBorderWidth: Number(ev.target.value) })}>
+            {BORDER_WIDTHS.map((w) => <option key={w} value={w}>{w}px</option>)}
+          </select>
+        </label>
+        <span className="flex items-center gap-1.5">색
+          {BORDER_COLORS.map((c) => (
+            <button key={c} type="button" aria-label={`테두리 색 ${c}`} onClick={() => set({ tbBorderColor: c })}
+              className={`h-6 w-6 rounded-full border ${(a.tbBorderColor ?? "#e5e7eb") === c ? "ring-2 ring-blue-400 ring-offset-1" : ""}`} style={{ background: c }} />
+          ))}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-1">배치</span>
+        {ALIGNS.map(([v, n]) => (
+          <button key={v} type="button" onClick={() => setAlign(v)}
+            className={`rounded-lg border px-2.5 py-1.5 text-xs ${(a.tbAlign ?? "inline") === v ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}>{n}</button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <span className="flex items-center gap-1.5">너비
+          <input key={`w${a.tbWidth}`} type="number" min={120} className={`${sel} w-24`} defaultValue={num(a.tbWidth)} placeholder="자동" aria-label="표 너비(px)"
+            onBlur={(ev) => ev.target.value && set({ tbWidth: Math.max(120, Number(ev.target.value)) })} />px
+          <button type="button" className="text-xs text-blue-600" onClick={() => set({ tbWidth: null })}>100%</button>
+        </span>
+        <span className="flex items-center gap-1.5">높이
+          <input key={`h${a.tbHeight}`} type="number" min={40} className={`${sel} w-24`} defaultValue={num(a.tbHeight)} placeholder="자동" aria-label="표 높이(px)"
+            onBlur={(ev) => ev.target.value && set({ tbHeight: Math.max(40, Number(ev.target.value)) })} />px
+          <button type="button" className="text-xs text-blue-600" onClick={() => set({ tbHeight: null })}>자동</button>
+        </span>
+      </div>
+      <p className="text-xs leading-relaxed text-gray-400">
+        표 안에서 <b>Ctrl+A</b>로 표 전체를 선택한 뒤 <b>Ctrl+←/→</b> 폭, <b>Ctrl+↑/↓</b> 높이를 조절할 수 있습니다.
+        &lsquo;글자처럼 취급&rsquo;은 본문 폭에 맞춰 문단처럼 놓이고, 둘러싸기는 표 옆으로 글이 흐릅니다.
+      </p>
+    </div>
+  );
+}
+
 export default function RichEditor({ userId, onReady, onChange, onError }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<Editor | null>(null);
   const [busy, setBusy] = useState(false);
+  const [tablePanel, setTablePanel] = useState(false);
+  const [symbols, setSymbols] = useState(false);
 
   async function insertImages(files: File[]) {
     const images = files.filter((f) => f.type.startsWith("image/"));
@@ -95,7 +158,7 @@ export default function RichEditor({ userId, onReady, onChange, onError }: Props
       Color,
       Highlight.configure({ multicolor: true }),
       Placeholder.configure({ placeholder: "내용을 입력하세요. 사진은 끌어다 놓거나 붙여넣을 수 있습니다." }),
-      Table.configure({ resizable: false }),
+      RichTable.configure({ resizable: false }),
       TableRow, TableHeader, TableCell,
       TaskList,
       TaskItem.configure({ nested: true }),
@@ -195,15 +258,19 @@ export default function RichEditor({ userId, onReady, onChange, onError }: Props
             <Btn title="행 삭제" on={() => c().deleteRow().run()}>－행</Btn>
             <Btn title="열 삭제" on={() => c().deleteColumn().run()}>－열</Btn>
             <Btn title="표 삭제" on={() => c().deleteTable().run()}>🗑</Btn>
+            <Btn title="표 속성" active={tablePanel} on={() => setTablePanel((v) => !v)}>⚙ 표 속성</Btn>
           </>
         )}
         <Sep />
+        <Btn title="문자표" active={symbols} on={() => setSymbols(true)}>Ω 문자표</Btn>
         <Btn title="서식 지우기" on={() => c().clearNodes().unsetAllMarks().run()}>Tx</Btn>
         <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
           onChange={(ev) => { insertImages([...(ev.target.files ?? [])]); ev.target.value = ""; }} />
       </div>
+      {tablePanel && e.isActive("table") && <TablePanel editor={e} />}
       </div>
       <EditorContent editor={editor} />
+      {symbols && <SymbolPicker onClose={() => setSymbols(false)} onPick={(ch) => c().insertContent(ch).run()} />}
       <div className="flex justify-between border-t border-gray-100 px-4 py-2 text-xs text-gray-400">
         <span>{busy ? "사진 업로드 중…" : "사진은 끌어다 놓거나 붙여넣기(Ctrl+V)도 됩니다"}</span>
         <span>{e.storage.characterCount.characters().toLocaleString()} / {MAX_CHARS.toLocaleString()}자</span>

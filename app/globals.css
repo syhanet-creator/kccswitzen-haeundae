@@ -56,8 +56,9 @@ select {
 .rich img { max-width: 100%; height: auto; border-radius: 0.75rem; margin: 0.5em 0; }
 .rich img.ProseMirror-selectednode { outline: 3px solid #60a5fa; }
 .rich mark { border-radius: 0.2rem; padding: 0 0.15em; }
-.rich table { border-collapse: collapse; width: 100%; table-layout: fixed; overflow: hidden; }
-.rich th, .rich td { border: 1px solid #e5e7eb; padding: 0.5em 0.7em; vertical-align: top; text-align: left; }
+.rich table { border-collapse: collapse; width: 100%; max-width: 100%; table-layout: fixed; }
+.rich::after { content: ""; display: block; clear: both; }
+.rich th, .rich td { border: var(--tb-width, 1px) var(--tb-style, solid) var(--tb-color, #e5e7eb); padding: 0.5em 0.7em; vertical-align: top; text-align: left; }
 .rich th { background: #f8fafc; font-weight: 600; width: 28%; }
 .rich .selectedCell { background: #dbeafe; }
 .rich p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: #9ca3af; float: left; height: 0; pointer-events: none; }
