@@ -28,7 +28,7 @@ type Props = {
 function Btn({ on, active, disabled, title, children }: { on: () => void; active?: boolean; disabled?: boolean; title: string; children: React.ReactNode }) {
   return (
     <button type="button" title={title} aria-label={title} disabled={disabled} onMouseDown={(e) => e.preventDefault()} onClick={on}
-      className={`flex h-8 min-w-8 shrink-0 items-center justify-center rounded-md px-1.5 text-sm transition disabled:opacity-30 ${active ? "bg-blue-100 text-blue-700" : "text-gray-700 hover:bg-gray-100"}`}>
+      className={`flex h-9 min-w-9 shrink-0 items-center justify-center rounded-md px-2 text-sm transition disabled:opacity-30 ${active ? "bg-blue-100 text-blue-700" : "text-gray-700 hover:bg-gray-100"}`}>
       {children}
     </button>
   );
@@ -41,10 +41,10 @@ function Swatches({ label, colors, onPick, onClear }: { label: string; colors: s
   return (
     <details ref={ref} className="relative shrink-0">
       <summary title={label} aria-label={label} onMouseDown={(e) => e.preventDefault()}
-        className="flex h-8 min-w-8 cursor-pointer list-none items-center justify-center rounded-md px-1.5 text-sm text-gray-700 hover:bg-gray-100 [&::-webkit-details-marker]:hidden">
+        className="flex h-9 min-w-9 cursor-pointer list-none items-center justify-center rounded-md px-1.5 text-sm text-gray-700 hover:bg-gray-100 [&::-webkit-details-marker]:hidden">
         {label}
       </summary>
-      <div className="absolute left-0 top-9 z-20 flex gap-1.5 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
+      <div className="absolute left-0 top-10 z-20 flex gap-1.5 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
         {colors.map((c) => (
           <button key={c} type="button" aria-label={c} onMouseDown={(e) => e.preventDefault()}
             onClick={() => { onPick(c); if (ref.current) ref.current.open = false; }}
@@ -124,11 +124,12 @@ export default function RichEditor({ userId, onReady, onChange, onError }: Props
 
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm focus-within:border-blue-400">
-      <div className="sticky top-0 z-10 flex items-center gap-0.5 overflow-x-auto border-b border-gray-100 bg-white/95 p-1.5 backdrop-blur">
+      <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/95 p-2 backdrop-blur">
+      <div className="flex flex-wrap items-center gap-0.5">
         <Btn title="실행 취소" on={() => c.undo().run()} disabled={!e.can().undo()}>↶</Btn>
         <Btn title="다시 실행" on={() => c.redo().run()} disabled={!e.can().redo()}>↷</Btn>
         <Sep />
-        <select aria-label="문단 스타일" className="h-8 shrink-0 rounded-md border-0 bg-transparent px-1 text-sm text-gray-700 hover:bg-gray-100"
+        <select aria-label="문단 스타일" className="h-9 shrink-0 rounded-md border-0 bg-transparent px-1 text-sm text-gray-700 hover:bg-gray-100"
           value={e.isActive("heading", { level: 1 }) ? "1" : e.isActive("heading", { level: 2 }) ? "2" : e.isActive("heading", { level: 3 }) ? "3" : "0"}
           onChange={(ev) => {
             const v = Number(ev.target.value);
@@ -148,7 +149,8 @@ export default function RichEditor({ userId, onReady, onChange, onError }: Props
         <Btn title="왼쪽 정렬" active={e.isActive({ textAlign: "left" })} on={() => c.setTextAlign("left").run()}>⇤</Btn>
         <Btn title="가운데 정렬" active={e.isActive({ textAlign: "center" })} on={() => c.setTextAlign("center").run()}>↔</Btn>
         <Btn title="오른쪽 정렬" active={e.isActive({ textAlign: "right" })} on={() => c.setTextAlign("right").run()}>⇥</Btn>
-        <Sep />
+      </div>
+      <div className="mt-1 flex flex-wrap items-center gap-0.5 border-t border-gray-100 pt-1">
         <Btn title="글머리 기호" active={e.isActive("bulletList")} on={() => c.toggleBulletList().run()}>• ≡</Btn>
         <Btn title="번호 목록" active={e.isActive("orderedList")} on={() => c.toggleOrderedList().run()}>1.≡</Btn>
         <Btn title="체크리스트" active={e.isActive("taskList")} on={() => c.toggleTaskList().run()}>☑</Btn>
@@ -179,6 +181,7 @@ export default function RichEditor({ userId, onReady, onChange, onError }: Props
         <Btn title="서식 지우기" on={() => c.clearNodes().unsetAllMarks().run()}>Tx</Btn>
         <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
           onChange={(ev) => { insertImages([...(ev.target.files ?? [])]); ev.target.value = ""; }} />
+      </div>
       </div>
       <EditorContent editor={editor} />
       <div className="flex justify-between border-t border-gray-100 px-4 py-2 text-xs text-gray-400">

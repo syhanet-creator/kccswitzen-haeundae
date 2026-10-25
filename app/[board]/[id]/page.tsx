@@ -38,7 +38,7 @@ function Detail({ board, id, me }: { board: string; id: number; me: Profile }) {
             <ul className="divide-y divide-gray-100">
               {post.attachments.map((f) => (
                 <li key={f.path}>
-                  <a href={f.url} download={f.name} target="_blank" rel="noopener noreferrer"
+                  <a href={`${f.url}?download=${encodeURIComponent(f.name)}`} rel="noopener noreferrer"
                     className="flex items-center justify-between gap-3 py-2 text-sm hover:text-blue-700">
                     <span className="min-w-0 truncate">📄 {f.name}</span>
                     <span className="shrink-0 text-xs text-gray-400">{formatSize(f.size)} ⬇</span>
