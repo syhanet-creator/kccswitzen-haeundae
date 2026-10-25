@@ -3,15 +3,15 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { BOARDS, STATUS_LABEL, isBoard } from "@/lib/boards";
+import { BOARDS, STATUS_LABEL, dealOf, isBoard } from "@/lib/boards";
 import { Gate } from "@/components/Session";
 
-type Row = { id: number; title: string; status: keyof typeof STATUS_LABEL; created_at: string; profiles: { nickname: string } | null };
+type Row = { id: number; title: string; status: keyof typeof STATUS_LABEL; deal_type: string | null; created_at: string; profiles: { nickname: string } | null };
 
 function List({ board, canWrite }: { board: keyof typeof BOARDS; canWrite: boolean }) {
   const [rows, setRows] = useState<Row[]>([]);
   useEffect(() => {
-    supabase.from("posts").select("id,title,status,created_at,profiles(nickname)").eq("board", board)
+    supabase.from("posts").select("id,title,status,deal_type,created_at,profiles(nickname)").eq("board", board)
       .order("created_at", { ascending: false }).limit(50)
       .then(({ data }) => setRows((data as unknown as Row[]) ?? []));
   }, [board]);
@@ -33,7 +33,13 @@ function List({ board, canWrite }: { board: keyof typeof BOARDS; canWrite: boole
             <Link href={`/${board}/${r.id}`} className="flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-gray-50">
               <span className="min-w-0 truncate font-medium">
                 {board === "complaint" && <b className="mr-2 rounded bg-blue-50 px-1.5 py-0.5 text-xs text-blue-700">{STATUS_LABEL[r.status]}</b>}
-                {r.title}
+                {board === "market" && (
+                  <>
+                    <b className={`mr-1.5 rounded px-1.5 py-0.5 text-xs ${dealOf(r.deal_type).tone}`}>{dealOf(r.deal_type).name}</b>
+                    {r.status === "done" && <b className="mr-2 rounded bg-gray-200 px-1.5 py-0.5 text-xs text-gray-600">{dealOf(r.deal_type).done}</b>}
+                  </>
+                )}
+                <span className={board === "market" && r.status === "done" ? "text-gray-400 line-through" : ""}>{r.title}</span>
               </span>
               <span className="shrink-0 text-xs text-gray-400">{r.profiles?.nickname} · {r.created_at.slice(0, 10)}</span>
             </Link>

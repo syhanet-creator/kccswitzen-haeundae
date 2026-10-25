@@ -9,3 +9,12 @@ export type BoardKey = keyof typeof BOARDS;
 export const isBoard = (k: string): k is BoardKey => k in BOARDS;
 
 export const STATUS_LABEL = { open: "접수", in_progress: "처리중", done: "완료" } as const;
+
+/** 중고장터·나눔 거래 유형과 상태 문구 */
+export type DealType = "sell" | "share" | "wanted";
+export const DEALS: Record<DealType, { name: string; ongoing: string; done: string; tone: string }> = {
+  sell: { name: "판매", ongoing: "판매중", done: "판매완료", tone: "bg-blue-50 text-blue-700" },
+  share: { name: "나눔", ongoing: "나눔중", done: "나눔완료", tone: "bg-emerald-50 text-emerald-700" },
+  wanted: { name: "구해요", ongoing: "구하는 중", done: "구입완료", tone: "bg-amber-50 text-amber-700" },
+};
+export const dealOf = (t: string | null | undefined) => DEALS[(t as DealType) ?? "sell"] ?? DEALS.sell;
