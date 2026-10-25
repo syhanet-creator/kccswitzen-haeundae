@@ -123,22 +123,23 @@ export default function RichEditor({ userId, onReady, onChange, onError }: Props
   }, [editor, onReady]);
 
   if (!editor) return <div className="h-96 animate-pulse rounded-2xl bg-gray-100" />;
-  const c = editor.chain().focus();
+  // 렌더 중에 chain().focus() 를 만들면 그 즉시 포커스 명령이 실행돼 제목 입력 등을 가로챈다. 클릭 시점에만 만든다.
+  const c = () => editor.chain().focus();
   const e = editor;
 
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm focus-within:border-blue-400">
       <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/95 p-2 backdrop-blur">
       <div className="flex flex-wrap items-center gap-0.5">
-        <Btn title="실행 취소" on={() => c.undo().run()} disabled={!e.can().undo()}>↶</Btn>
-        <Btn title="다시 실행" on={() => c.redo().run()} disabled={!e.can().redo()}>↷</Btn>
+        <Btn title="실행 취소" on={() => c().undo().run()} disabled={!e.can().undo()}>↶</Btn>
+        <Btn title="다시 실행" on={() => c().redo().run()} disabled={!e.can().redo()}>↷</Btn>
         <Sep />
         <select aria-label="문단 스타일" className="h-9 shrink-0 rounded-md border-0 bg-transparent px-1 text-sm text-gray-700 hover:bg-gray-100"
           value={e.isActive("heading", { level: 1 }) ? "1" : e.isActive("heading", { level: 2 }) ? "2" : e.isActive("heading", { level: 3 }) ? "3" : "0"}
           onChange={(ev) => {
             const v = Number(ev.target.value);
-            if (v) c.setHeading({ level: v as 1 | 2 | 3 }).run();
-            else c.setParagraph().run();
+            if (v) c().setHeading({ level: v as 1 | 2 | 3 }).run();
+            else c().setParagraph().run();
           }}>
           <option value="0">본문</option><option value="1">제목 1</option><option value="2">제목 2</option><option value="3">제목 3</option>
         </select>
@@ -154,46 +155,46 @@ export default function RichEditor({ userId, onReady, onChange, onError }: Props
           {SIZES.map((n) => <option key={n} value={`${n}px`}>{n}</option>)}
         </select>
         <Sep />
-        <Btn title="굵게" active={e.isActive("bold")} on={() => c.toggleBold().run()}><b>B</b></Btn>
-        <Btn title="기울임" active={e.isActive("italic")} on={() => c.toggleItalic().run()}><i>I</i></Btn>
-        <Btn title="밑줄" active={e.isActive("underline")} on={() => c.toggleUnderline().run()}><u>U</u></Btn>
-        <Btn title="취소선" active={e.isActive("strike")} on={() => c.toggleStrike().run()}><s>S</s></Btn>
-        <Swatches label="A̲ 글자색" colors={COLORS} onPick={(col) => c.setColor(col).run()} onClear={() => c.unsetColor().run()} />
-        <Swatches label="🖍 형광펜" colors={MARKS} onPick={(col) => c.toggleHighlight({ color: col }).run()} onClear={() => c.unsetHighlight().run()} />
+        <Btn title="굵게" active={e.isActive("bold")} on={() => c().toggleBold().run()}><b>B</b></Btn>
+        <Btn title="기울임" active={e.isActive("italic")} on={() => c().toggleItalic().run()}><i>I</i></Btn>
+        <Btn title="밑줄" active={e.isActive("underline")} on={() => c().toggleUnderline().run()}><u>U</u></Btn>
+        <Btn title="취소선" active={e.isActive("strike")} on={() => c().toggleStrike().run()}><s>S</s></Btn>
+        <Swatches label="A̲ 글자색" colors={COLORS} onPick={(col) => c().setColor(col).run()} onClear={() => c().unsetColor().run()} />
+        <Swatches label="🖍 형광펜" colors={MARKS} onPick={(col) => c().toggleHighlight({ color: col }).run()} onClear={() => c().unsetHighlight().run()} />
         <Sep />
-        <Btn title="왼쪽 정렬" active={e.isActive({ textAlign: "left" })} on={() => c.setTextAlign("left").run()}>⇤</Btn>
-        <Btn title="가운데 정렬" active={e.isActive({ textAlign: "center" })} on={() => c.setTextAlign("center").run()}>↔</Btn>
-        <Btn title="오른쪽 정렬" active={e.isActive({ textAlign: "right" })} on={() => c.setTextAlign("right").run()}>⇥</Btn>
+        <Btn title="왼쪽 정렬" active={e.isActive({ textAlign: "left" })} on={() => c().setTextAlign("left").run()}>⇤</Btn>
+        <Btn title="가운데 정렬" active={e.isActive({ textAlign: "center" })} on={() => c().setTextAlign("center").run()}>↔</Btn>
+        <Btn title="오른쪽 정렬" active={e.isActive({ textAlign: "right" })} on={() => c().setTextAlign("right").run()}>⇥</Btn>
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-0.5 border-t border-gray-100 pt-1">
-        <Btn title="글머리 기호" active={e.isActive("bulletList")} on={() => c.toggleBulletList().run()}>• ≡</Btn>
-        <Btn title="번호 목록" active={e.isActive("orderedList")} on={() => c.toggleOrderedList().run()}>1.≡</Btn>
-        <Btn title="체크리스트" active={e.isActive("taskList")} on={() => c.toggleTaskList().run()}>☑</Btn>
-        <Btn title="인용" active={e.isActive("blockquote")} on={() => c.toggleBlockquote().run()}>❝</Btn>
-        <Btn title="코드 블록" active={e.isActive("codeBlock")} on={() => c.toggleCodeBlock().run()}>{"</>"}</Btn>
-        <Btn title="구분선" on={() => c.setHorizontalRule().run()}>―</Btn>
+        <Btn title="글머리 기호" active={e.isActive("bulletList")} on={() => c().toggleBulletList().run()}>• ≡</Btn>
+        <Btn title="번호 목록" active={e.isActive("orderedList")} on={() => c().toggleOrderedList().run()}>1.≡</Btn>
+        <Btn title="체크리스트" active={e.isActive("taskList")} on={() => c().toggleTaskList().run()}>☑</Btn>
+        <Btn title="인용" active={e.isActive("blockquote")} on={() => c().toggleBlockquote().run()}>❝</Btn>
+        <Btn title="코드 블록" active={e.isActive("codeBlock")} on={() => c().toggleCodeBlock().run()}>{"</>"}</Btn>
+        <Btn title="구분선" on={() => c().setHorizontalRule().run()}>―</Btn>
         <Sep />
         <Btn title="링크" active={e.isActive("link")} on={() => {
           const prev = e.getAttributes("link").href as string | undefined;
           const url = window.prompt("링크 주소 (비우면 링크 삭제)", prev ?? "https://");
           if (url === null) return;
-          if (url.trim() === "") return void c.extendMarkRange("link").unsetLink().run();
+          if (url.trim() === "") return void c().extendMarkRange("link").unsetLink().run();
           if (!/^https?:\/\//i.test(url)) return onError("링크는 http:// 또는 https:// 로 시작해야 합니다.");
-          c.extendMarkRange("link").setLink({ href: url }).run();
+          c().extendMarkRange("link").setLink({ href: url }).run();
         }}>🔗</Btn>
         <Btn title="사진 넣기" disabled={busy} on={() => fileRef.current?.click()}>{busy ? "…" : "🖼"}</Btn>
-        <Btn title="표 넣기" active={e.isActive("table")} on={() => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>▦</Btn>
+        <Btn title="표 넣기" active={e.isActive("table")} on={() => c().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>▦</Btn>
         {e.isActive("table") && (
           <>
-            <Btn title="행 추가" on={() => c.addRowAfter().run()}>＋행</Btn>
-            <Btn title="열 추가" on={() => c.addColumnAfter().run()}>＋열</Btn>
-            <Btn title="행 삭제" on={() => c.deleteRow().run()}>－행</Btn>
-            <Btn title="열 삭제" on={() => c.deleteColumn().run()}>－열</Btn>
-            <Btn title="표 삭제" on={() => c.deleteTable().run()}>🗑</Btn>
+            <Btn title="행 추가" on={() => c().addRowAfter().run()}>＋행</Btn>
+            <Btn title="열 추가" on={() => c().addColumnAfter().run()}>＋열</Btn>
+            <Btn title="행 삭제" on={() => c().deleteRow().run()}>－행</Btn>
+            <Btn title="열 삭제" on={() => c().deleteColumn().run()}>－열</Btn>
+            <Btn title="표 삭제" on={() => c().deleteTable().run()}>🗑</Btn>
           </>
         )}
         <Sep />
-        <Btn title="서식 지우기" on={() => c.clearNodes().unsetAllMarks().run()}>Tx</Btn>
+        <Btn title="서식 지우기" on={() => c().clearNodes().unsetAllMarks().run()}>Tx</Btn>
         <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
           onChange={(ev) => { insertImages([...(ev.target.files ?? [])]); ev.target.value = ""; }} />
       </div>
