@@ -77,11 +77,16 @@ export function InstallButton() {
   useEffect(() => {
     setInstalled(isStandalone());
     setIos(isIos());
+    const early = (window as unknown as { __installPrompt?: InstallPrompt | null }).__installPrompt;
+    if (early) setPrompt(early); // 화면이 준비되기 전에 이미 도착한 신호
+    const onReady = () => setPrompt((window as unknown as { __installPrompt?: InstallPrompt | null }).__installPrompt ?? null);
     const onPrompt = (e: Event) => { e.preventDefault(); setPrompt(e as InstallPrompt); };
     const onInstalled = () => { setInstalled(true); setPrompt(null); };
+    window.addEventListener("installprompt-ready", onReady);
     window.addEventListener("beforeinstallprompt", onPrompt);
     window.addEventListener("appinstalled", onInstalled);
     return () => {
+      window.removeEventListener("installprompt-ready", onReady);
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
     };
