@@ -78,3 +78,5 @@ insert into profiles (id, nickname, dong, ho)
 select u.id, coalesce(nullif(u.raw_user_meta_data->>'nickname',''), split_part(u.email,'@',1)),
        coalesce(u.raw_user_meta_data->>'dong',''), coalesce(u.raw_user_meta_data->>'ho','')
 from auth.users u left join profiles p on p.id = u.id where p.id is null;
+-- 관리자가 가입 신청을 거절(프로필 삭제)할 수 있게 한다.
+create policy "admin delete profiles" on profiles for delete using (is_admin());
