@@ -29,20 +29,46 @@ export async function fetchNews(query: string, limit: number, mustHave: RegExp, 
   try {
     const res = await fetch(url, { next: { revalidate: 900 } });
     if (!res.ok) return [];
-    const seen = new Set<string>();
     return parseRss(await res.text())
       .filter((a) => mustHave.test(a.title))
       .sort((a, b) => b.date - a.date)
-      .filter((a) => {
-        const key = a.title.replace(/\s/g, "").slice(0, 20);
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
       .slice(0, limit);
   } catch {
     return [];
   }
+}
+
+const SIM_THRESHOLD = 0.4;
+
+const grams = (title: string) => {
+  const t = title.replace(/[^0-9A-Za-z가-힣]/g, "");
+  const out = new Set<string>();
+  for (let i = 0; i < t.length - 1; i++) out.add(t.slice(i, i + 2));
+  return out;
+};
+
+/** 제목 글자 2-gram 유사도(Jaccard)가 0.4 이상이면 같은 묶음으로 본다(한수원 뉴스 스크랩과 같은 방식). */
+export function clusterArticles(arts: Article[]): Article[][] {
+  const g = arts.map((a) => grams(a.title));
+  const parent = arts.map((_, i) => i);
+  const find = (x: number): number => {
+    while (parent[x] !== x) x = parent[x] = parent[parent[x]];
+    return x;
+  };
+  for (let i = 0; i < arts.length; i++) {
+    for (let j = 0; j < i; j++) {
+      let inter = 0;
+      g[i].forEach((x) => g[j].has(x) && inter++);
+      const union = g[i].size + g[j].size - inter;
+      if (union && inter / union >= SIM_THRESHOLD) parent[find(i)] = find(j);
+    }
+  }
+  const groups = new Map<number, Article[]>();
+  arts.forEach((a, i) => {
+    const k = find(i);
+    groups.set(k, [...(groups.get(k) ?? []), a]);
+  });
+  return [...groups.values()]; // 입력이 최신순이므로 묶음도 최신 기사 순
 }
 
 export function timeAgo(ms: number, now = Date.now()) {
