@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { InstallButton } from "@/components/Pwa";
 
 export type Profile = { id: string; nickname: string; dong: string; ho: string; role: string; approved: boolean };
 
@@ -38,6 +39,7 @@ export function Header() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <Link href="/" className="text-lg font-bold text-blue-800">KCC 스위첸 <span className="hidden font-normal text-gray-500 sm:inline">해운대 좌동</span></Link>
         <div className="flex items-center">
+        <InstallButton />
         {profile?.role === "admin" && <Link href="/admin" className="mr-3 whitespace-nowrap text-sm text-blue-600">가입 승인</Link>}
         {profile ? (
           <button className="whitespace-nowrap text-sm text-gray-600" onClick={() => supabase.auth.signOut()}>

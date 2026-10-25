@@ -2,10 +2,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useProfile, type Profile } from "@/components/Session";
+import PushToggle from "@/components/PushToggle";
 
 type Row = Profile & { created_at: string };
 
-function Admin() {
+function Admin({ userId }: { userId: string }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [err, setErr] = useState("");
 
@@ -52,6 +53,7 @@ function Admin() {
   return (
     <div className="mx-auto grid max-w-3xl gap-4 py-6">
       <h1 className="text-xl font-bold">입주민 가입 승인</h1>
+      <PushToggle userId={userId} />
       {err && <p className="text-sm text-red-600">{err}</p>}
       <section>
         <h2 className="mb-2 font-semibold">승인 대기 ({pending.length})</h2>
@@ -74,5 +76,5 @@ export default function AdminPage() {
   const { profile, loading } = useProfile();
   if (loading) return <p className="p-6 text-gray-500">불러오는 중…</p>;
   if (!profile || profile.role !== "admin" || !profile.approved) return <p className="p-6">관리자만 접근할 수 있습니다.</p>;
-  return <Admin />;
+  return <Admin userId={profile.id} />;
 }
