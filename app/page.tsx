@@ -62,6 +62,20 @@ export default async function Home() {
         <p className="mt-2 text-sm text-blue-50">이웃과 소통하고, 우리 동네 소식을 한눈에 확인하세요.</p>
       </section>
 
+      <section>
+        <h2 className="mb-3 text-lg font-bold">입주민 게시판</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {Object.entries(BOARDS).map(([key, b]) => (
+            <Link key={key} href={`/${key}`}
+              className="group rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+              <span className={`flex h-10 w-10 items-center justify-center rounded-xl text-xl ${b.tone}`}>{b.icon}</span>
+              <div className="mt-3 font-semibold group-hover:text-blue-700">{b.name}</div>
+              <div className="mt-1 text-sm text-gray-500">{b.desc}</div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       <section className="grid items-start gap-6 lg:grid-cols-5">
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-3">
           <div className="mb-1 flex items-center justify-between">
@@ -90,19 +104,6 @@ export default async function Home() {
         </div>
       </section>
 
-      <section>
-        <h2 className="mb-3 text-lg font-bold">입주민 게시판</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {Object.entries(BOARDS).map(([key, b]) => (
-            <Link key={key} href={`/${key}`}
-              className="group rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-              <span className={`flex h-10 w-10 items-center justify-center rounded-xl text-xl ${b.tone}`}>{b.icon}</span>
-              <div className="mt-3 font-semibold group-hover:text-blue-700">{b.name}</div>
-              <div className="mt-1 text-sm text-gray-500">{b.desc}</div>
-            </Link>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }
