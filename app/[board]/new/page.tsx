@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, notFound } from "next/navigation";
 import type { Editor } from "@tiptap/react";
 import { supabase } from "@/lib/supabase";
-import { BOARDS, isBoard, type BoardKey } from "@/lib/boards";
+import { BOARDS, DEALS, isBoard, type BoardKey, type DealType } from "@/lib/boards";
 import { TEMPLATES } from "@/lib/templates";
 import { Gate, type Profile } from "@/components/Session";
 import RichEditor from "@/components/RichEditor";
@@ -21,6 +21,7 @@ function Writer({ board, me }: { board: BoardKey; me: Profile }) {
   const editorRef = useRef<Editor | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [templateId, setTemplateId] = useState("blank");
+  const [dealType, setDealType] = useState<DealType>("sell");
   const [title, setTitle] = useState("");
   const [files, setFiles] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(0);
@@ -37,6 +38,7 @@ function Writer({ board, me }: { board: BoardKey; me: Profile }) {
     const dirty = !ed.isEmpty && !templates.some((x) => x.html && ed.getHTML() === x.html);
     if (dirty && !confirm("작성 중인 내용이 템플릿으로 바뀝니다. 계속할까요?")) return;
     setTemplateId(id);
+    if (board === "market" && (id === "sell" || id === "share" || id === "wanted")) setDealType(id);
     if (t.title && (!title || templates.some((x) => x.title && x.title === title))) setTitle(t.title);
     if (!t.title && templates.some((x) => x.title && x.title === title)) setTitle("");
     ed.commands.setContent(t.html || "<p></p>", { emitUpdate: true });
@@ -81,6 +83,7 @@ function Writer({ board, me }: { board: BoardKey; me: Profile }) {
     setSaving(true);
     const { error } = await supabase.from("posts").insert({
       board, title: title.trim(), body: html, author_id: me.id,
+      ...(board === "market" ? { deal_type: dealType } : {}),
       attachments: files.map(({ name, url, path, size, type }) => ({ name, url, path, size, type })),
     });
     setSaving(false);
@@ -113,6 +116,21 @@ function Writer({ board, me }: { board: BoardKey; me: Profile }) {
           ))}
         </div>
       </section>
+
+      {board === "market" && (
+        <section>
+          <h2 className="mb-2 text-sm font-semibold text-gray-700">거래 유형</h2>
+          <div className="grid grid-cols-3 gap-2">
+            {(Object.keys(DEALS) as DealType[]).map((k) => (
+              <button key={k} type="button" onClick={() => setDealType(k)}
+                className={`rounded-xl border py-2.5 text-sm font-semibold transition ${dealType === k ? "border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-200" : "border-gray-200 bg-white text-gray-600 hover:border-blue-300"}`}>
+                {DEALS[k].name}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-xs text-gray-400">등록 후 글 화면에서 &lsquo;{DEALS[dealType].done}&rsquo;로 전환할 수 있습니다.</p>
+        </section>
+      )}
 
       <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={100} placeholder="제목을 입력하세요"
         className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-lg font-semibold shadow-sm outline-none focus:border-blue-400" />

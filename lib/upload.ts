@@ -15,12 +15,16 @@ export function checkFile(file: File): string | null {
   return null;
 }
 
-/** Supabase Storage 의 uploads 버킷에 <userId>/<랜덤>-<파일명> 으로 올린다. */
+/**
+ * Supabase Storage 의 uploads 버킷에 <userId>/<랜덤>.<확장자> 로 올린다.
+ * 저장소 키는 영문·숫자만 허용하므로(한글 파일명은 Invalid key) 경로에는 원래 이름을 쓰지 않고,
+ * 원래 이름은 Attachment.name 으로 따로 보관해 목록·내려받기에 쓴다.
+ */
 export async function uploadFile(userId: string, file: File): Promise<Attachment> {
   const bad = checkFile(file);
   if (bad) throw new Error(bad);
-  const safe = file.name.replace(/[^0-9A-Za-z가-힣._-]/g, "_").slice(-80);
-  const path = `${userId}/${crypto.randomUUID()}-${safe}`;
+  const ext = (file.name.match(/\.([0-9A-Za-z]{1,8})$/)?.[1] ?? "").toLowerCase();
+  const path = `${userId}/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
   const { error } = await supabase.storage.from("uploads").upload(path, file, { contentType: file.type || undefined });
   if (error) throw new Error(`${file.name}: ${error.message}`);
   const { data } = supabase.storage.from("uploads").getPublicUrl(path);

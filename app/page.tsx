@@ -67,47 +67,55 @@ export default async function Home() {
         <p className="mt-2 text-sm text-blue-50">이웃과 소통하고, 우리 동네 소식을 한눈에 확인하세요.</p>
       </section>
 
-      <section>
-        <h2 className="mb-3 text-lg font-bold">입주민 게시판</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {Object.entries(BOARDS).map(([key, b]) => (
-            <Link key={key} href={`/${key}`}
-              className="group rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-              <span className={`flex h-10 w-10 items-center justify-center rounded-xl text-xl ${b.tone}`}>{b.icon}</span>
-              <div className="mt-3 font-semibold group-hover:text-blue-700">{b.name}</div>
-              <div className="mt-1 text-sm text-gray-500">{b.desc}</div>
-            </Link>
-          ))}
-        </div>
-      </section>
+      <div className="grid items-start gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
+        {/* 입주민 게시판: 데스크톱은 좌측 세로 메뉴, 모바일은 상단 아이콘 4개 */}
+        <aside className="lg:sticky lg:top-4">
+          <h2 className="mb-2 hidden text-sm font-bold text-gray-500 lg:block">입주민 게시판</h2>
+          <nav className="grid grid-cols-4 gap-2 lg:grid-cols-1 lg:gap-2.5" aria-label="입주민 게시판">
+            {Object.entries(BOARDS).map(([key, b]) => (
+              <Link key={key} href={`/${key}`}
+                className="group flex flex-col items-center gap-1.5 rounded-2xl border border-gray-200 bg-white px-1 py-3 text-center shadow-sm transition hover:-translate-y-0.5 hover:shadow-md lg:flex-row lg:gap-3 lg:px-3 lg:text-left">
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-2xl ${b.tone}`}>{b.icon}</span>
+                <span className="min-w-0">
+                  <span className="block text-[13px] font-semibold leading-tight group-hover:text-blue-700 lg:text-sm">
+                    <span className="lg:hidden">{b.short}</span>
+                    <span className="hidden lg:inline">{b.name}</span>
+                  </span>
+                  <span className="mt-0.5 hidden text-xs leading-snug text-gray-400 lg:block">{b.desc}</span>
+                </span>
+              </Link>
+            ))}
+          </nav>
+        </aside>
 
-      <section className="grid items-start gap-6 lg:grid-cols-5">
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-3">
-          <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-            <h2 className="whitespace-nowrap text-lg font-bold">📰 해운대구 주요 뉴스</h2>
-            <span className="text-xs text-gray-400">최근 7일 · 유사 기사는 + 로 펼치기</span>
-          </div>
-          <Headlines items={main} max={20} empty="뉴스를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요." />
-        </div>
-
-        <div className="grid content-start gap-4 lg:col-span-2">
-          {TOPICS.map((t, i) => (
-            <div key={t.key} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="flex items-center gap-2">
-                <span className={`flex h-8 w-8 items-center justify-center rounded-lg text-lg ${t.color}`}>{t.icon}</span>
-                <h2 className="font-bold">{t.name}</h2>
-              </div>
-              <Headlines items={topics[i]} max={4} empty="최근 관련 뉴스가 없습니다." />
-              <div className="mt-1 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
-                {t.links.map(([name, href]) => (
-                  <a key={href} href={href} target="_blank" rel="noopener noreferrer"
-                    className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600 hover:bg-gray-200">{name} ↗</a>
-                ))}
-              </div>
+        <section className="grid min-w-0 items-start gap-6 xl:grid-cols-5">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm xl:col-span-3">
+            <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+              <h2 className="whitespace-nowrap text-lg font-bold">📰 해운대구 주요 뉴스</h2>
+              <span className="text-xs text-gray-400">최근 7일 · 유사 기사는 + 로 펼치기</span>
             </div>
-          ))}
-        </div>
-      </section>
+            <Headlines items={main} max={20} empty="뉴스를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요." />
+          </div>
+
+          <div className="grid content-start gap-4 xl:col-span-2">
+            {TOPICS.map((t, i) => (
+              <div key={t.key} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-lg text-lg ${t.color}`}>{t.icon}</span>
+                  <h2 className="font-bold">{t.name}</h2>
+                </div>
+                <Headlines items={topics[i]} max={4} empty="최근 관련 뉴스가 없습니다." />
+                <div className="mt-1 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+                  {t.links.map(([name, href]) => (
+                    <a key={href} href={href} target="_blank" rel="noopener noreferrer"
+                      className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600 hover:bg-gray-200">{name} ↗</a>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
 
     </div>
   );

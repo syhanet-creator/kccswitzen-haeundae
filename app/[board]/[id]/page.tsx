@@ -2,12 +2,12 @@
 import { use, useCallback, useEffect, useState } from "react";
 import { notFound, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { STATUS_LABEL, isBoard } from "@/lib/boards";
+import { STATUS_LABEL, dealOf, isBoard } from "@/lib/boards";
 import { Gate, type Profile } from "@/components/Session";
 import PostBody from "@/components/PostBody";
 import { formatSize, removeUpload, type Attachment } from "@/lib/upload";
 
-type Post = { id: number; title: string; body: string; status: keyof typeof STATUS_LABEL; author_id: string; created_at: string; attachments: Attachment[]; profiles: { nickname: string } | null };
+type Post = { id: number; title: string; body: string; status: keyof typeof STATUS_LABEL; author_id: string; deal_type: string | null; created_at: string; attachments: Attachment[]; profiles: { nickname: string } | null };
 type Comment = { id: number; body: string; author_id: string; profiles: { nickname: string } | null };
 
 function Detail({ board, id, me }: { board: string; id: number; me: Profile }) {
@@ -26,10 +26,21 @@ function Detail({ board, id, me }: { board: string; id: number; me: Profile }) {
   useEffect(() => { load(); }, [load]);
 
   if (!post) return <p className="p-4 text-gray-500">글을 찾을 수 없습니다.</p>;
+  const deal = dealOf(post.deal_type);
+  const isDone = post.status === "done";
+  const canManage = post.author_id === me.id || isAdmin;
   return (
     <div className="mx-auto grid max-w-3xl gap-4 py-6">
       <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h1 className="text-lg font-bold">{post.title}</h1>
+        {board === "market" && (
+          <div className="mb-2 flex items-center gap-2">
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${deal.tone}`}>{deal.name}</span>
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${isDone ? "bg-gray-200 text-gray-600" : "bg-green-50 text-green-700"}`}>
+              {isDone ? deal.done : deal.ongoing}
+            </span>
+          </div>
+        )}
+        <h1 className={`text-lg font-bold ${board === "market" && isDone ? "text-gray-400 line-through" : ""}`}>{post.title}</h1>
         <p className="mb-3 text-xs text-gray-500">{post.profiles?.nickname} · {post.created_at.slice(0, 10)}</p>
         <PostBody html={post.body} />
         {post.attachments?.length > 0 && (
@@ -38,7 +49,7 @@ function Detail({ board, id, me }: { board: string; id: number; me: Profile }) {
             <ul className="divide-y divide-gray-100">
               {post.attachments.map((f) => (
                 <li key={f.path}>
-                  <a href={f.url} download={f.name} target="_blank" rel="noopener noreferrer"
+                  <a href={`${f.url}?download=${encodeURIComponent(f.name)}`} rel="noopener noreferrer"
                     className="flex items-center justify-between gap-3 py-2 text-sm hover:text-blue-700">
                     <span className="min-w-0 truncate">📄 {f.name}</span>
                     <span className="shrink-0 text-xs text-gray-400">{formatSize(f.size)} ⬇</span>
@@ -47,6 +58,18 @@ function Detail({ board, id, me }: { board: string; id: number; me: Profile }) {
               ))}
             </ul>
           </div>
+        )}
+        {board === "market" && canManage && (
+          <button type="button"
+            onClick={async () => {
+              const next = isDone ? "open" : "done";
+              if (next === "done" && !confirm(`${deal.done}로 전환할까요?`)) return;
+              await supabase.from("posts").update({ status: next }).eq("id", id);
+              load();
+            }}
+            className={`mt-4 w-full rounded-xl py-3 text-sm font-semibold transition ${isDone ? "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50" : "bg-blue-600 text-white hover:bg-blue-700"}`}>
+            {isDone ? `${deal.ongoing}으로 되돌리기` : `${deal.done}로 전환`}
+          </button>
         )}
         <div className="mt-3 flex items-center gap-2">
           {board === "complaint" && (isAdmin ? (
