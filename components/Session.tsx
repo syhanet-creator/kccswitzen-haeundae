@@ -37,6 +37,8 @@ export function Header() {
     <header className="border-b bg-white">
       <div className="mx-auto flex max-w-2xl items-center justify-between p-4">
         <Link href="/" className="font-bold">KCC 스위첸 해운대 좌동</Link>
+        <div className="flex items-center">
+        {profile?.role === "admin" && <Link href="/admin" className="mr-3 text-sm text-blue-600">가입 승인</Link>}
         {profile ? (
           <button className="text-sm text-gray-600" onClick={() => supabase.auth.signOut()}>
             {profile.dong}동 {profile.ho}호 · 로그아웃
@@ -44,6 +46,7 @@ export function Header() {
         ) : (
           <Link href="/login" className="text-sm text-gray-600">로그인</Link>
         )}
+        </div>
       </div>
     </header>
   );

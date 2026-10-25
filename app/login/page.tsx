@@ -18,12 +18,16 @@ export default function Login() {
       if (error) return setMsg(error.message);
       return router.push("/");
     }
-    const { data, error } = await supabase.auth.signUp({ email: f.email, password: f.password });
+    const { error } = await supabase.auth.signUp({
+      email: f.email,
+      password: f.password,
+      options: {
+        data: { nickname: f.nickname, dong: f.dong, ho: f.ho },
+        emailRedirectTo: window.location.origin,
+      },
+    });
     if (error) return setMsg(error.message);
-    if (!data.session) return setMsg("이메일 인증 후 다시 로그인해 프로필을 완성하세요.");
-    const { error: pe } = await supabase.from("profiles").insert({ id: data.user!.id, nickname: f.nickname, dong: f.dong, ho: f.ho });
-    if (pe) return setMsg(pe.message);
-    setMsg("가입 완료. 관리사무소 확인(승인) 후 이용할 수 있습니다.");
+    setMsg("가입 완료. 이메일 인증 후 로그인하세요. 관리사무소 확인(승인) 후 이용할 수 있습니다.");
   }
 
   const input = "w-full rounded border p-2";
