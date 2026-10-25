@@ -83,8 +83,8 @@ export default async function Home() {
 
       <section className="grid items-start gap-6 lg:grid-cols-5">
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-3">
-          <div className="mb-1 flex items-center justify-between">
-            <h2 className="text-lg font-bold">📰 해운대구 주요 뉴스</h2>
+          <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+            <h2 className="whitespace-nowrap text-lg font-bold">📰 해운대구 주요 뉴스</h2>
             <span className="text-xs text-gray-400">최근 7일 · 유사 기사는 + 로 펼치기</span>
           </div>
           <Headlines items={main} max={20} empty="뉴스를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요." />

@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light; /* 다크 모드 폰에서도 밝은 테마로 고정 */
+  --background: #f8fafc;
+  --foreground: #111827;
 }
 
 @theme inline {
@@ -12,12 +13,6 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
 
 html,
 body {
