@@ -24,26 +24,31 @@ function Item({ a }: { a: Article }) {
   );
 }
 
-/** 유사 기사는 한 박스로 묶어 보여준다. */
+/** 유사 기사는 대표 1건만 보여주고, +를 누르면 나머지가 펼쳐진다. */
 function Headlines({ items, max, empty }: { items: Article[]; max: number; empty: string }) {
   const groups = clusterArticles(items).slice(0, max);
   if (groups.length === 0) return <p className="py-6 text-center text-sm text-gray-400">{empty}</p>;
   return (
     <div className="divide-y divide-gray-100">
-      {groups.map((g) =>
-        g.length === 1 ? (
-          <Item key={g[0].link} a={g[0]} />
-        ) : (
-          <div key={g[0].link} className="my-2 rounded-xl border border-blue-100 bg-blue-50/40">
-            <div className="px-3 pt-2 text-xs font-semibold text-blue-700">
-              유사 기사 {g.length}건 · 언론사 {new Set(g.map((x) => x.source)).size}곳
-            </div>
-            <div className="divide-y divide-blue-100/70 px-3">
-              {g.map((a) => <Item key={a.link} a={a} />)}
-            </div>
-          </div>
-        ),
-      )}
+      {groups.map(([top, ...rest]) => (
+        <div key={top.link}>
+          <Item a={top} />
+          {rest.length > 0 && (
+            <details className="group mb-3 rounded-xl bg-blue-50/60">
+              <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-semibold text-blue-700 [&::-webkit-details-marker]:hidden">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-sm leading-none text-white">
+                  <span className="group-open:hidden">+</span>
+                  <span className="hidden group-open:inline">−</span>
+                </span>
+                유사 기사 {rest.length}건 · 언론사 {new Set([top, ...rest].map((x) => x.source)).size}곳
+              </summary>
+              <div className="divide-y divide-blue-100/70 px-3">
+                {rest.map((a) => <Item key={a.link} a={a} />)}
+              </div>
+            </details>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -80,7 +85,7 @@ export default async function Home() {
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-3">
           <div className="mb-1 flex items-center justify-between">
             <h2 className="text-lg font-bold">📰 해운대구 주요 뉴스</h2>
-            <span className="text-xs text-gray-400">최근 7일 · 유사 기사는 묶음 표시</span>
+            <span className="text-xs text-gray-400">최근 7일 · 유사 기사는 + 로 펼치기</span>
           </div>
           <Headlines items={main} max={20} empty="뉴스를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요." />
         </div>
