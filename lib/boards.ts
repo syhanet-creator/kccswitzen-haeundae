@@ -1,8 +1,8 @@
 export const BOARDS = {
-  notice: { icon: "📢", tone: "bg-rose-50", name: "공지사항", desc: "관리사무소·입주자대표회의 소식" },
-  free: { icon: "💬", tone: "bg-blue-50", name: "자유게시판·소모임", desc: "이웃과 이야기하고 모임을 만들어요" },
-  market: { icon: "🛍️", tone: "bg-amber-50", name: "중고장터·나눔", desc: "필요 없는 물건은 이웃에게" },
-  complaint: { icon: "🛠️", tone: "bg-emerald-50", name: "민원·시설문의", desc: "작성자와 관리자에게만 보입니다" },
+  notice: { short: "공지사항", icon: "📢", tone: "bg-rose-50", name: "공지사항", desc: "관리사무소·입주자대표회의 소식" },
+  free: { short: "자유게시판", icon: "💬", tone: "bg-blue-50", name: "자유게시판·소모임", desc: "이웃과 이야기하고 모임을 만들어요" },
+  market: { short: "중고·나눔", icon: "🛍️", tone: "bg-amber-50", name: "중고장터·나눔", desc: "필요 없는 물건은 이웃에게" },
+  complaint: { short: "민원·문의", icon: "🛠️", tone: "bg-emerald-50", name: "민원·시설문의", desc: "작성자와 관리자에게만 보입니다" },
 } as const;
 
 export type BoardKey = keyof typeof BOARDS;

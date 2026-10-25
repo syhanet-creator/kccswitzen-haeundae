@@ -4,7 +4,7 @@ import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import TextAlign from "@tiptap/extension-text-align";
-import { TextStyle } from "@tiptap/extension-text-style";
+import { TextStyle, FontSize, FontFamily } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
 import Highlight from "@tiptap/extension-highlight";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -16,6 +16,8 @@ import { checkFile, uploadFile } from "@/lib/upload";
 
 const MAX_CHARS = 20000;
 const COLORS = ["#111827", "#dc2626", "#ea580c", "#ca8a04", "#16a34a", "#2563eb", "#7c3aed", "#db2777"];
+const SIZES = [14, 16, 18, 20, 24, 28, 32];
+const FONTS = [["", "기본 고딕"], ["serif", "명조체"], ["monospace", "고정폭"], ["cursive", "손글씨"]] as const;
 const MARKS = ["#fef08a", "#bbf7d0", "#bfdbfe", "#fbcfe8", "#fed7aa"];
 
 type Props = {
@@ -88,6 +90,8 @@ export default function RichEditor({ userId, onReady, onChange, onError }: Props
       Image.configure({ allowBase64: false }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       TextStyle,
+      FontSize,
+      FontFamily,
       Color,
       Highlight.configure({ multicolor: true }),
       Placeholder.configure({ placeholder: "내용을 입력하세요. 사진은 끌어다 놓거나 붙여넣을 수 있습니다." }),
@@ -137,6 +141,17 @@ export default function RichEditor({ userId, onReady, onChange, onError }: Props
             else c.setParagraph().run();
           }}>
           <option value="0">본문</option><option value="1">제목 1</option><option value="2">제목 2</option><option value="3">제목 3</option>
+        </select>
+        <select aria-label="글꼴" className="h-9 shrink-0 rounded-md border-0 bg-transparent px-1 text-sm text-gray-700 hover:bg-gray-100"
+          value={(e.getAttributes("textStyle").fontFamily as string | undefined) ?? ""}
+          onChange={(ev) => { const ch = e.chain().focus(); if (ev.target.value) ch.setFontFamily(ev.target.value).run(); else ch.unsetFontFamily().run(); }}>
+          {FONTS.map(([v, n]) => <option key={n} value={v}>{n}</option>)}
+        </select>
+        <select aria-label="글자 크기" className="h-9 shrink-0 rounded-md border-0 bg-transparent px-1 text-sm text-gray-700 hover:bg-gray-100"
+          value={(e.getAttributes("textStyle").fontSize as string | undefined) ?? ""}
+          onChange={(ev) => { const ch = e.chain().focus(); if (ev.target.value) ch.setFontSize(ev.target.value).run(); else ch.unsetFontSize().run(); }}>
+          <option value="">크기</option>
+          {SIZES.map((n) => <option key={n} value={`${n}px`}>{n}</option>)}
         </select>
         <Sep />
         <Btn title="굵게" active={e.isActive("bold")} on={() => c.toggleBold().run()}><b>B</b></Btn>

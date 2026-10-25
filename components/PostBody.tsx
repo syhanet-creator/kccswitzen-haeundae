@@ -18,11 +18,13 @@ function setupHooks() {
       const base = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
       if (!node.getAttribute("src")?.startsWith(`${base}/storage/`)) node.remove();
     }
-    // 인라인 스타일은 글자색·형광펜·정렬만 허용 (화면을 덮는 스타일 등 차단)
+    // 인라인 스타일은 글자색·형광펜·정렬·글자 크기·글꼴만 허용 (화면을 덮는 스타일 등 차단)
     const st = node.getAttribute?.("style");
     if (st) {
-      const keep = st.split(";").map((d) => d.trim())
-        .filter((d) => /^(color|background-color|text-align)\s*:\s*[#\w(),.\s%-]+$/i.test(d) && !/url\(|expression/i.test(d));
+      const keep = st.split(";").map((d) => d.trim()).filter((d) => !/url\(|expression/i.test(d) && (
+        /^(color|background-color|text-align)\s*:\s*[#\w(),.\s%-]+$/i.test(d) ||
+        /^font-size\s*:\s*\d{1,2}px$/i.test(d) ||
+        /^font-family\s*:\s*(serif|sans-serif|monospace|cursive)$/i.test(d)));
       if (keep.length) node.setAttribute("style", keep.join("; "));
       else node.removeAttribute("style");
     }
