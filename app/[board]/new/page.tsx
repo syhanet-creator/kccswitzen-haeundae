@@ -16,7 +16,7 @@ export default function NewPost({ params }: { params: Promise<{ board: string }>
   return (
     <Gate>
       {(p) => (
-        <form className="grid gap-3 p-4" onSubmit={async (e) => {
+        <form className="mx-auto grid max-w-3xl gap-3 py-6" onSubmit={async (e) => {
           e.preventDefault();
           const { error } = await supabase.from("posts").insert({ board, title, body, author_id: p.id });
           if (error) return setErr(error.message);

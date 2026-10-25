@@ -25,7 +25,7 @@ function Detail({ board, id, me }: { board: string; id: number; me: Profile }) {
 
   if (!post) return <p className="p-4 text-gray-500">글을 찾을 수 없습니다.</p>;
   return (
-    <div className="grid gap-4 p-4">
+    <div className="mx-auto grid max-w-3xl gap-4 py-6">
       <div className="rounded-lg border bg-white p-4">
         <h1 className="text-lg font-bold">{post.title}</h1>
         <p className="mb-3 text-xs text-gray-500">{post.profiles?.nickname} · {post.created_at.slice(0, 10)}</p>

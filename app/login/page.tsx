@@ -32,7 +32,7 @@ export default function Login() {
 
   const input = "w-full rounded border p-2";
   return (
-    <form onSubmit={submit} className="grid gap-3 p-4">
+    <form onSubmit={submit} className="mx-auto mt-10 grid max-w-sm gap-3 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
       <h1 className="text-xl font-bold">{mode === "in" ? "로그인" : "입주민 가입"}</h1>
       <input className={input} type="email" placeholder="이메일" value={f.email} onChange={set("email")} required />
       <input className={input} type="password" placeholder="비밀번호(6자 이상)" value={f.password} onChange={set("password")} required minLength={6} />

@@ -50,7 +50,7 @@ function Admin() {
   );
 
   return (
-    <div className="grid gap-4 p-4">
+    <div className="mx-auto grid max-w-3xl gap-4 py-6">
       <h1 className="text-xl font-bold">입주민 가입 승인</h1>
       {err && <p className="text-sm text-red-600">{err}</p>}
       <section>

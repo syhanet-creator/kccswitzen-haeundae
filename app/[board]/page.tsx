@@ -16,21 +16,30 @@ function List({ board, canWrite }: { board: keyof typeof BOARDS; canWrite: boole
       .then(({ data }) => setRows((data as unknown as Row[]) ?? []));
   }, [board]);
   return (
-    <div className="p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h1 className="text-xl font-bold">{BOARDS[board].name}</h1>
-        {canWrite && <Link href={`/${board}/new`} className="rounded bg-blue-600 px-3 py-1 text-sm text-white">글쓰기</Link>}
+    <div className="mx-auto max-w-3xl py-6">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className={`flex h-11 w-11 items-center justify-center rounded-xl text-2xl ${BOARDS[board].tone}`}>{BOARDS[board].icon}</span>
+          <div>
+            <h1 className="text-xl font-bold">{BOARDS[board].name}</h1>
+            <p className="text-sm text-gray-500">{BOARDS[board].desc}</p>
+          </div>
+        </div>
+        {canWrite && <Link href={`/${board}/new`} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">글쓰기</Link>}
       </div>
-      <ul className="divide-y rounded-lg border bg-white">
+      <ul className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
         {rows.map((r) => (
           <li key={r.id}>
-            <Link href={`/${board}/${r.id}`} className="flex justify-between p-3">
-              <span>{board === "complaint" && <b className="mr-2 text-xs text-blue-600">[{STATUS_LABEL[r.status]}]</b>}{r.title}</span>
-              <span className="text-xs text-gray-500">{r.profiles?.nickname} · {r.created_at.slice(0, 10)}</span>
+            <Link href={`/${board}/${r.id}`} className="flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-gray-50">
+              <span className="min-w-0 truncate font-medium">
+                {board === "complaint" && <b className="mr-2 rounded bg-blue-50 px-1.5 py-0.5 text-xs text-blue-700">{STATUS_LABEL[r.status]}</b>}
+                {r.title}
+              </span>
+              <span className="shrink-0 text-xs text-gray-400">{r.profiles?.nickname} · {r.created_at.slice(0, 10)}</span>
             </Link>
           </li>
         ))}
-        {rows.length === 0 && <li className="p-4 text-gray-500">글이 없습니다.</li>}
+        {rows.length === 0 && <li className="p-10 text-center text-gray-400">아직 글이 없습니다. 첫 글을 남겨 보세요.</li>}
       </ul>
     </div>
   );
