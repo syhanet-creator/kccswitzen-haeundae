@@ -3,7 +3,7 @@
  * - 정적 파일(스크립트·스타일·이미지·글꼴): 캐시해 두고 빠르게 열기
  * - 로그인·데이터(Supabase)·API 요청은 건드리지 않는다(항상 네트워크).
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC = `static-${VERSION}`;
 const PAGES = `pages-${VERSION}`;
 const PRECACHE = ["/offline.html", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png"];
@@ -80,4 +80,35 @@ self.addEventListener("fetch", (e) => {
   if (["style", "script", "font", "image"].includes(req.destination)) {
     e.respondWith(staleWhileRevalidate(req));
   }
+});
+
+// ───────── 푸시 알림 ─────────
+self.addEventListener("push", (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data ? e.data.text() : "" }; }
+  e.waitUntil(
+    self.registration.showNotification(d.title || "스위첸 커뮤니티", {
+      body: d.body || "",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      tag: d.tag || undefined,
+      renotify: !!d.tag,
+      data: { url: d.url || "/" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || "/";
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const c of list) {
+        if (new URL(c.url).origin === self.location.origin && "focus" in c) {
+          return c.focus().then((f) => (f && "navigate" in f ? f.navigate(url) : f));
+        }
+      }
+      return self.clients.openWindow(url);
+    }),
+  );
 });
