@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import DOMPurify from "dompurify";
+import { isAllowedFontFamily } from "@/lib/fonts";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -24,7 +25,7 @@ function setupHooks() {
       const keep = st.split(";").map((d) => d.trim()).filter((d) => !/url\(|expression/i.test(d) && (
         /^(color|background-color|text-align)\s*:\s*[#\w(),.\s%-]+$/i.test(d) ||
         /^font-size\s*:\s*\d{1,2}px$/i.test(d) ||
-        /^font-family\s*:\s*(serif|sans-serif|monospace|cursive)$/i.test(d)));
+        /^font-family\s*:/i.test(d) && isAllowedFontFamily(d.slice(d.indexOf(":") + 1))));
       if (keep.length) node.setAttribute("style", keep.join("; "));
       else node.removeAttribute("style");
     }
