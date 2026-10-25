@@ -1,4 +1,4 @@
-import { Table } from "@tiptap/extension-table";
+import { Table, TableRow } from "@tiptap/extension-table";
 import type { Editor } from "@tiptap/core";
 import { CellSelection, TableMap } from "@tiptap/pm/tables";
 
@@ -76,24 +76,179 @@ function selectWholeTable(editor: Editor, t: NonNullable<ReturnType<typeof findT
   view.dispatch(state.tr.setSelection(CellSelection.create(state.doc, first, last)));
 }
 
-/** 표 전체를 선택한 상태에서 폭·높이를 키우거나 줄인다. */
-function resize(editor: Editor, t: NonNullable<ReturnType<typeof findTable>>, dw: number, dh: number) {
-  const dom = editor.view.nodeDOM(t.pos) as HTMLElement | null;
-  const el = dom?.closest?.("table") ?? dom;
-  if (!el) return;
+
+type Ctx = { t: NonNullable<ReturnType<typeof findTable>>; map: TableMap; start: number };
+type Rect = { left: number; right: number; top: number; bottom: number };
+
+const COL_MIN = 40;
+const ROW_MIN = 24;
+
+function tableCtx(editor: Editor): Ctx | null {
+  const t = findTable(editor);
+  return t ? { t, map: TableMap.get(t.node), start: t.pos + 1 } : null;
+}
+
+/** 선택(여러 칸) 또는 커서가 있는 칸이 차지하는 열·행 범위. 칸 하나에 커서만 있어도 그 칸의 열·행이 된다. */
+function selectedRect(editor: Editor, c: Ctx): Rect | null {
+  const sel = editor.state.selection;
+  const positions: number[] = [];
+  if (sel instanceof CellSelection) {
+    sel.forEachCell((_n, pos) => positions.push(pos));
+  } else {
+    const { $from } = sel;
+    for (let d = $from.depth; d > 0; d--) {
+      const name = $from.node(d).type.name;
+      if (name === "tableCell" || name === "tableHeader") { positions.push($from.before(d)); break; }
+    }
+  }
+  if (!positions.length) return null;
+  const rects = positions.map((pos) => c.map.findCell(pos - c.start));
+  return {
+    left: Math.min(...rects.map((r) => r.left)), right: Math.max(...rects.map((r) => r.right)),
+    top: Math.min(...rects.map((r) => r.top)), bottom: Math.max(...rects.map((r) => r.bottom)),
+  };
+}
+
+const domOf = (editor: Editor, pos: number) => editor.view.nodeDOM(pos) as HTMLElement | null;
+
+/** 현재 각 열의 너비(px). 한 칸이 여러 열에 걸쳐 있으면 균등 분할로 본다. */
+function columnWidths(editor: Editor, c: Ctx): number[] {
+  const widths: number[] = new Array(c.map.width).fill(0);
+  const seen = new Set<number>();
+  for (let r = 0; r < c.map.height; r++) {
+    for (let col = 0; col < c.map.width; col++) {
+      const rel = c.map.map[r * c.map.width + col];
+      if (seen.has(rel)) continue;
+      seen.add(rel);
+      const rect = c.map.findCell(rel);
+      const w = domOf(editor, c.start + rel)?.offsetWidth ?? 0;
+      const span = rect.right - rect.left;
+      for (let k = rect.left; k < rect.right; k++) if (!widths[k]) widths[k] = w / span;
+    }
+  }
+  return widths.map((w) => Math.max(COL_MIN, Math.round(w)));
+}
+
+/** 선택한 열들의 너비를 delta 만큼 바꾼다. 표가 본문 폭을 넘으면 다른 열에서 덜어 온다. */
+function resizeColumns(editor: Editor, c: Ctx, rect: Rect, delta: number) {
   const maxW = Math.max(MIN_W, (editor.view.dom as HTMLElement).clientWidth - 32);
-  const curW = t.node.attrs.tbWidth ?? el.offsetWidth;
-  const curH = t.node.attrs.tbHeight ?? el.offsetHeight;
-  const next = { ...t.node.attrs };
-  if (dw) next.tbWidth = Math.round(Math.min(maxW, Math.max(MIN_W, curW + dw)));
-  if (dh) next.tbHeight = Math.round(Math.max(MIN_H, curH + dh));
-  if (dw && next.tbAlign === "inline") next.tbAlign = "left";
+  const widths = columnWidths(editor, c);
+  const inSel = (i: number) => i >= rect.left && i < rect.right;
+  const next = widths.map((w, i) => (inSel(i) ? Math.max(COL_MIN, w + delta) : w));
+  let sum = next.reduce((a, b) => a + b, 0);
+  if (sum > maxW) {
+    const room = next.map((w, i) => (inSel(i) ? 0 : w - COL_MIN));
+    const roomTotal = room.reduce((a, b) => a + b, 0);
+    let excess = sum - maxW;
+    const take = Math.min(excess, roomTotal);
+    if (roomTotal > 0) next.forEach((w, i) => { if (!inSel(i)) next[i] = Math.round(w - (take * room[i]) / roomTotal); });
+    excess -= take;
+    if (excess > 0) { // 더 덜어 올 열이 없으면 선택한 열을 되돌린다
+      const selCount = rect.right - rect.left;
+      next.forEach((w, i) => { if (inSel(i)) next[i] = Math.max(COL_MIN, w - Math.ceil(excess / selCount)); });
+    }
+    sum = next.reduce((a, b) => a + b, 0);
+  }
   const { state, view } = editor;
   const sel = state.selection;
-  const tr = state.tr.setNodeMarkup(t.pos, undefined, next);
+  const tr = state.tr;
+  const done = new Set<number>();
+  for (let r = 0; r < c.map.height; r++) {
+    for (let col = 0; col < c.map.width; col++) {
+      const rel = c.map.map[r * c.map.width + col];
+      if (done.has(rel)) continue;
+      done.add(rel);
+      const cr = c.map.findCell(rel);
+      const node = state.doc.nodeAt(c.start + rel);
+      if (!node) continue;
+      const colwidth = Array.from({ length: cr.right - cr.left }, (_, k) => next[cr.left + k]);
+      tr.setNodeMarkup(c.start + rel, undefined, { ...node.attrs, colwidth });
+    }
+  }
+  const a = c.t.node.attrs;
+  tr.setNodeMarkup(c.t.pos, undefined, { ...a, tbWidth: sum, tbAlign: a.tbAlign === "inline" ? "left" : a.tbAlign });
   if (sel instanceof CellSelection) tr.setSelection(CellSelection.create(tr.doc, sel.$anchorCell.pos, sel.$headCell.pos));
   view.dispatch(tr);
 }
+
+/** 선택한 행들의 높이를 delta 만큼 바꾼다(최소 높이로 동작: 글이 더 크면 글에 맞춰진다). */
+function resizeRows(editor: Editor, c: Ctx, rect: Rect, delta: number) {
+  const { state, view } = editor;
+  const sel = state.selection;
+  const tr = state.tr;
+  c.t.node.forEach((row, offset, idx) => {
+    if (idx < rect.top || idx >= rect.bottom) return;
+    const pos = c.t.pos + 1 + offset;
+    const cur = domOf(editor, pos)?.offsetHeight ?? 0;
+    tr.setNodeMarkup(pos, undefined, { ...row.attrs, tbRowHeight: Math.max(ROW_MIN, Math.round(cur + delta)) });
+  });
+  tr.setNodeMarkup(c.t.pos, undefined, { ...c.t.node.attrs, tbHeight: null }); // 표 전체 높이 지정은 해제
+  if (sel instanceof CellSelection) tr.setSelection(CellSelection.create(tr.doc, sel.$anchorCell.pos, sel.$headCell.pos));
+  view.dispatch(tr);
+}
+
+/**
+ * 표 전체를 선택한 상태에서 폭·높이를 키우거나 줄인다.
+ * 열 너비·행 높이가 이미 정해져 있으면 그 합이 표 크기의 하한이 되므로, 같은 비율로 함께 늘이고 줄인다.
+ */
+function resize(editor: Editor, t: NonNullable<ReturnType<typeof findTable>>, dw: number, dh: number) {
+  const c = tableCtx(editor);
+  if (!c) return;
+  const maxW = Math.max(MIN_W, (editor.view.dom as HTMLElement).clientWidth - 32);
+  const { state, view } = editor;
+  const sel = state.selection;
+  const tr = state.tr;
+
+  if (dw) {
+    const widths = columnWidths(editor, c);
+    const total = widths.reduce((a, b) => a + b, 0);
+    const target = Math.round(Math.min(maxW, Math.max(MIN_W, total + dw)));
+    const next = widths.map((w) => Math.max(COL_MIN, Math.round((w * target) / total)));
+    const done = new Set<number>();
+    for (let r = 0; r < c.map.height; r++) {
+      for (let col = 0; col < c.map.width; col++) {
+        const rel = c.map.map[r * c.map.width + col];
+        if (done.has(rel)) continue;
+        done.add(rel);
+        const cr = c.map.findCell(rel);
+        const node = state.doc.nodeAt(c.start + rel);
+        if (!node) continue;
+        tr.setNodeMarkup(c.start + rel, undefined, { ...node.attrs, colwidth: Array.from({ length: cr.right - cr.left }, (_, k) => next[cr.left + k]) });
+      }
+    }
+    const a = t.node.attrs;
+    tr.setNodeMarkup(t.pos, undefined, { ...a, tbWidth: next.reduce((x, y) => x + y, 0), tbAlign: a.tbAlign === "inline" ? "left" : a.tbAlign });
+  }
+
+  if (dh) {
+    const heights: { pos: number; h: number; attrs: Record<string, unknown> }[] = [];
+    t.node.forEach((row, offset) => {
+      const pos = t.pos + 1 + offset;
+      heights.push({ pos, h: Math.max(ROW_MIN, domOf(editor, pos)?.offsetHeight ?? ROW_MIN), attrs: row.attrs });
+    });
+    const total = heights.reduce((a, b) => a + b.h, 0);
+    const target = Math.max(MIN_H, total + dh);
+    heights.forEach(({ pos, h, attrs }) => tr.setNodeMarkup(pos, undefined, { ...attrs, tbRowHeight: Math.max(ROW_MIN, Math.round((h * target) / total)) }));
+    tr.setNodeMarkup(t.pos, undefined, { ...tr.doc.nodeAt(t.pos)!.attrs, tbHeight: null });
+  }
+
+  if (sel instanceof CellSelection) tr.setSelection(CellSelection.create(tr.doc, sel.$anchorCell.pos, sel.$headCell.pos));
+  view.dispatch(tr);
+}
+
+/** 행 높이(px)를 저장하는 표 행 */
+export const RichTableRow = TableRow.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      tbRowHeight: {
+        default: null,
+        parseHTML: (el: HTMLElement) => px(el, "height"),
+        renderHTML: (a: Record<string, unknown>) => (a.tbRowHeight ? { style: `height: ${a.tbRowHeight}px` } : {}),
+      },
+    };
+  },
+});
 
 export const RichTable = Table.extend({
   priority: 1000,
@@ -151,18 +306,40 @@ export const RichTable = Table.extend({
       const table = document.createElement("table");
       const tbody = document.createElement("tbody");
       table.appendChild(tbody);
-      const paint = (attrs: Record<string, unknown>) => {
+      let colgroup: HTMLElement | null = null;
+      const paint = (attrs: Record<string, unknown>, tnode: typeof node) => {
         const css = tableStyle(attrs);
         if (css) table.setAttribute("style", css);
         else table.removeAttribute("style");
+        // 칸에 저장된 열 너비(colwidth)를 <col> 로 반영한다.
+        const map = TableMap.get(tnode);
+        const widths: number[] = new Array(map.width).fill(0);
+        for (let i = 0; i < map.map.length; i++) {
+          const cw = tnode.nodeAt(map.map[i])?.attrs.colwidth as number[] | null | undefined;
+          const col = i % map.width;
+          const rect = map.findCell(map.map[i]);
+          if (cw && cw[col - rect.left]) widths[col] = cw[col - rect.left];
+        }
+        colgroup?.remove();
+        colgroup = null;
+        if (widths.some(Boolean)) {
+          const cg = document.createElement("colgroup");
+          widths.forEach((w) => {
+            const col = document.createElement("col");
+            if (w) col.style.width = `${w}px`;
+            cg.appendChild(col);
+          });
+          table.insertBefore(cg, tbody);
+          colgroup = cg;
+        }
       };
-      paint(node.attrs);
+      paint(node.attrs, node);
       return {
         dom: table,
         contentDOM: tbody,
         update: (n) => {
           if (n.type !== node.type) return false;
-          paint(n.attrs);
+          paint(n.attrs, n);
           return true;
         },
       };
@@ -174,11 +351,15 @@ export const RichTable = Table.extend({
       const t = findTable(this.editor);
       return t ? fn(t) : false;
     };
-    // 전체 선택 상태에서만 Ctrl+방향키로 크기를 바꾼다(그 외에는 평소 동작).
-    const whenWhole = (dw: number, dh: number) =>
+    // Ctrl+방향키: 표 전체 선택이면 표 크기, 아니면 커서·선택이 걸친 열(←/→)·행(↑/↓)의 크기를 바꾼다.
+    const resizeKey = (dw: number, dh: number) =>
       withTable((t) => {
-        if (!wholeTableSelected(this.editor, t)) return false;
-        resize(this.editor, t, dw, dh);
+        if (wholeTableSelected(this.editor, t)) { resize(this.editor, t, dw, dh); return true; }
+        const ctx = tableCtx(this.editor);
+        const rect = ctx && selectedRect(this.editor, ctx);
+        if (!ctx || !rect) return false;
+        if (dw) resizeColumns(this.editor, ctx, rect, dw);
+        else resizeRows(this.editor, ctx, rect, dh);
         return true;
       });
     return {
@@ -189,10 +370,10 @@ export const RichTable = Table.extend({
         selectWholeTable(this.editor, t);
         return true;
       }),
-      "Mod-ArrowLeft": whenWhole(-STEP_W, 0),
-      "Mod-ArrowRight": whenWhole(STEP_W, 0),
-      "Mod-ArrowUp": whenWhole(0, -STEP_H),
-      "Mod-ArrowDown": whenWhole(0, STEP_H),
+      "Mod-ArrowLeft": resizeKey(-STEP_W, 0),
+      "Mod-ArrowRight": resizeKey(STEP_W, 0),
+      "Mod-ArrowUp": resizeKey(0, -STEP_H),
+      "Mod-ArrowDown": resizeKey(0, STEP_H),
     };
   },
 });

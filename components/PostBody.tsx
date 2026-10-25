@@ -33,13 +33,17 @@ function setupHooks() {
     }
     // 인라인 스타일은 글자색·형광펜·정렬·글자 크기·글꼴만 허용 (화면을 덮는 스타일 등 차단)
     const isTable = node.tagName === "TABLE";
+    const isRow = node.tagName === "TR";
+    const isCol = node.tagName === "COL";
     const st = node.getAttribute?.("style");
     if (st) {
       const keep = st.split(";").map((d) => d.trim()).filter((d) => !/url\(|expression/i.test(d) && (
         /^(color|background-color|text-align)\s*:\s*[#\w(),.\s%-]+$/i.test(d) ||
         /^font-size\s*:\s*\d{1,2}px$/i.test(d) ||
         /^font-family\s*:/i.test(d) && isAllowedFontFamily(d.slice(d.indexOf(":") + 1)) ||
-        (isTable && TABLE_STYLE.some((re) => re.test(d)))));
+        (isTable && TABLE_STYLE.some((re) => re.test(d))) ||
+        (isRow && /^height\s*:\s*\d{2,3}px$/i.test(d)) ||
+        (isCol && /^(width|min-width)\s*:\s*\d{2,4}(\.\d+)?px$/i.test(d))));
       if (keep.length) node.setAttribute("style", keep.join("; "));
       else node.removeAttribute("style");
     }
