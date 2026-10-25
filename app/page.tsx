@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BOARDS } from "@/lib/boards";
-import { fetchNews, timeAgo, type Article } from "@/lib/news";
+import { clusterArticles, fetchNews, timeAgo, type Article } from "@/lib/news";
 
 export const revalidate = 900;
 
@@ -15,26 +15,43 @@ const TOPICS = [
     links: [["생활안전지도", "https://www.safemap.go.kr"], ["경찰청", "https://www.police.go.kr"]] },
 ] as const;
 
-function Headlines({ items, empty }: { items: Article[]; empty: string }) {
-  if (items.length === 0) return <p className="py-6 text-center text-sm text-gray-400">{empty}</p>;
+function Item({ a }: { a: Article }) {
   return (
-    <ul className="divide-y divide-gray-100">
-      {items.map((a) => (
-        <li key={a.link}>
-          <a href={a.link} target="_blank" rel="noopener noreferrer" className="group block py-3">
-            <div className="text-[15px] font-medium leading-snug text-gray-900 group-hover:text-blue-700">{a.title}</div>
-            <div className="mt-1 text-xs text-gray-400">{a.source} · {timeAgo(a.date)}</div>
-          </a>
-        </li>
-      ))}
-    </ul>
+    <a href={a.link} target="_blank" rel="noopener noreferrer" className="group block py-3">
+      <div className="text-[15px] font-medium leading-snug text-gray-900 group-hover:text-blue-700">{a.title}</div>
+      <div className="mt-1 text-xs text-gray-400">{a.source} · {timeAgo(a.date)}</div>
+    </a>
+  );
+}
+
+/** 유사 기사는 한 박스로 묶어 보여준다. */
+function Headlines({ items, max, empty }: { items: Article[]; max: number; empty: string }) {
+  const groups = clusterArticles(items).slice(0, max);
+  if (groups.length === 0) return <p className="py-6 text-center text-sm text-gray-400">{empty}</p>;
+  return (
+    <div className="divide-y divide-gray-100">
+      {groups.map((g) =>
+        g.length === 1 ? (
+          <Item key={g[0].link} a={g[0]} />
+        ) : (
+          <div key={g[0].link} className="my-2 rounded-xl border border-blue-100 bg-blue-50/40">
+            <div className="px-3 pt-2 text-xs font-semibold text-blue-700">
+              유사 기사 {g.length}건 · 언론사 {new Set(g.map((x) => x.source)).size}곳
+            </div>
+            <div className="divide-y divide-blue-100/70 px-3">
+              {g.map((a) => <Item key={a.link} a={a} />)}
+            </div>
+          </div>
+        ),
+      )}
+    </div>
   );
 }
 
 export default async function Home() {
   const [main, ...topics] = await Promise.all([
-    fetchNews("해운대구", 12, LOCAL),
-    ...TOPICS.map((t) => fetchNews(t.query, 4, LOCAL, 14)),
+    fetchNews("해운대구", 40, LOCAL),
+    ...TOPICS.map((t) => fetchNews(t.query, 20, LOCAL, 14)),
   ]);
 
   return (
@@ -51,7 +68,7 @@ export default async function Home() {
             <h2 className="text-lg font-bold">📰 해운대구 주요 뉴스</h2>
             <span className="text-xs text-gray-400">최근 7일 · 구글 뉴스</span>
           </div>
-          <Headlines items={main} empty="뉴스를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요." />
+          <Headlines items={main} max={12} empty="뉴스를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요." />
         </div>
 
         <div className="grid content-start gap-4 lg:col-span-2">
@@ -61,7 +78,7 @@ export default async function Home() {
                 <span className={`flex h-8 w-8 items-center justify-center rounded-lg text-lg ${t.color}`}>{t.icon}</span>
                 <h2 className="font-bold">{t.name}</h2>
               </div>
-              <Headlines items={topics[i]} empty="최근 관련 뉴스가 없습니다." />
+              <Headlines items={topics[i]} max={4} empty="최근 관련 뉴스가 없습니다." />
               <div className="mt-1 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
                 {t.links.map(([name, href]) => (
                   <a key={href} href={href} target="_blank" rel="noopener noreferrer"
