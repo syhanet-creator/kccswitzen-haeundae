@@ -116,6 +116,7 @@ function TablePanel({ editor }: { editor: Editor }) {
       <p className="text-xs leading-relaxed text-gray-400">
         표 안에서 <b>Ctrl+←/→</b>는 커서가 있는(또는 선택한) 열의 너비, <b>Ctrl+↑/↓</b>는 행의 높이를 조절합니다.
         <b>Ctrl+A</b>로 표 전체를 선택한 뒤에는 표 전체 크기가 바뀝니다.
+        <b>Ctrl</b>을 한 번 누르면 칸이 선택되고, <b>Alt+방향키</b>는 그 칸 하나만 조절합니다(옆 칸이 보정해 표 크기는 그대로).
         &lsquo;글자처럼 취급&rsquo;은 본문 폭에 맞춰 문단처럼 놓이고, 둘러싸기는 표 옆으로 글이 흐릅니다.
       </p>
     </div>

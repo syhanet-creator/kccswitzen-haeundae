@@ -1,6 +1,8 @@
 import { Table, TableRow } from "@tiptap/extension-table";
 import type { Editor } from "@tiptap/core";
 import { CellSelection, TableMap } from "@tiptap/pm/tables";
+import { Plugin } from "@tiptap/pm/state";
+import type { Node as PMNode } from "@tiptap/pm/model";
 
 /** 표 속성: 폭·높이(px), 배치, 테두리 모양/굵기/색. 표 요소의 style 로 저장된다. */
 export type TableAlign = "inline" | "left" | "center" | "right" | "float-left" | "float-right";
@@ -187,6 +189,225 @@ function resizeRows(editor: Editor, c: Ctx, rect: Rect, delta: number) {
   view.dispatch(tr);
 }
 
+
+/* ───────── 칸 하나만 크기 조절(Alt+방향키) ─────────
+ * HTML 표는 한 열의 칸들이 같은 너비를 쓴다. 칸 하나만 다르게 하려면 열·행 경계를 세분하고
+ * 칸마다 colspan·rowspan 으로 걸치게 표를 다시 짠다(한글의 셀 크기 조절과 같은 결과).
+ * 조절한 칸의 가장자리에 맞닿은 옆 칸이 반대로 줄고 늘어, 표 전체와 다른 칸의 크기는 그대로다.
+ */
+type Geo = { rel: number; node: PMNode; x0: number; x1: number; y0: number; y1: number };
+
+const TOL = 2;
+const near = (a: number, b: number) => Math.abs(a - b) <= TOL;
+
+function measureCells(editor: Editor, c: Ctx): Geo[] | null {
+  const out: Geo[] = [];
+  const seen = new Set<number>();
+  for (const rel of c.map.map) {
+    if (seen.has(rel)) continue;
+    seen.add(rel);
+    const dom = domOf(editor, c.start + rel);
+    const node = c.t.node.nodeAt(rel);
+    if (!dom || !node) return null;
+    out.push({ rel, node, x0: dom.offsetLeft, x1: dom.offsetLeft + dom.offsetWidth, y0: dom.offsetTop, y1: dom.offsetTop + dom.offsetHeight });
+  }
+  const minX = Math.min(...out.map((g) => g.x0));
+  const minY = Math.min(...out.map((g) => g.y0));
+  out.forEach((g) => { g.x0 -= minX; g.x1 -= minX; g.y0 -= minY; g.y1 -= minY; });
+  return out;
+}
+
+/** 허용 오차 안의 좌표를 하나로 합친 경계선 목록 */
+function lines(values: number[]) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const out: number[] = [];
+  for (const v of sorted) if (!out.length || v - out[out.length - 1] > TOL) out.push(v);
+  return out;
+}
+const snap = (ls: number[], v: number) => ls.findIndex((l) => near(l, v));
+
+/** 대상 칸의 가장자리에 맞닿은 칸들. 모두 대상 칸의 범위 안에 들어와야(직사각형 유지) 한다. */
+function neighbours(all: Geo[], g: Geo, axis: "x" | "y", side: "after" | "before"): Geo[] | null {
+  const [a0, a1, b0, b1] = axis === "x" ? (["x0", "x1", "y0", "y1"] as const) : (["y0", "y1", "x0", "x1"] as const);
+  const edge = side === "after" ? g[a1] : g[a0];
+  const list = all.filter((n) => n !== g && near(side === "after" ? n[a0] : n[a1], edge) && n[b1] > g[b0] + TOL && n[b0] < g[b1] - TOL);
+  if (!list.length) return null;
+  if (list.some((n) => n[b0] < g[b0] - TOL || n[b1] > g[b1] + TOL)) return null; // 대상 칸 밖으로 튀어나온 옆 칸
+  const covered = list.reduce((sum, n) => sum + (n[b1] - n[b0]), 0);
+  return near(covered, g[b1] - g[b0]) ? list : null;
+}
+
+/** 칸들이 빈틈·겹침 없이 표를 채우는지 */
+function tiles(cells: Geo[], xs: number[], ys: number[]) {
+  const grid = new Uint8Array((xs.length - 1) * (ys.length - 1));
+  for (const g of cells) {
+    for (let y = snap(ys, g.y0); y < snap(ys, g.y1); y++)
+      for (let x = snap(xs, g.x0); x < snap(xs, g.x1); x++) {
+        if (grid[y * (xs.length - 1) + x]) return false;
+        grid[y * (xs.length - 1) + x] = 1;
+      }
+  }
+  return grid.every(Boolean);
+}
+
+/** 행이 글 때문에 최소한 차지하는 높이(지정한 높이를 잠시 풀고 잰다). 이보다 낮게는 줄일 수 없다. */
+function naturalRowHeight(editor: Editor, pos: number) {
+  const tr = domOf(editor, pos);
+  const table = tr?.closest("table") as HTMLElement | null;
+  if (!tr || !table) return ROW_MIN;
+  const saved = [tr.style.height, table.style.height];
+  tr.style.height = "";
+  table.style.height = "";
+  const h = tr.offsetHeight;
+  tr.style.height = saved[0];
+  table.style.height = saved[1];
+  return Math.max(ROW_MIN, Math.round(h));
+}
+
+/**
+ * 높이: 같은 행의 칸은 높이를 공유하므로 그 칸이 속한 행의 높이를 바꾼다. 다른 행은 그대로 두되,
+ * 표 전체 높이를 유지하도록 이웃 행(없으면 위쪽 행들)의 남는 높이를 주고받는다.
+ * 줄일 여유가 있는 행이 없으면 그만큼 표 전체가 늘어난다.
+ */
+function resizeRowWithNeighbour(editor: Editor, c: Ctx, rel: number, delta: number) {
+  const rect = c.map.findCell(rel);
+  const a = rect.bottom - 1;
+  const rows: { pos: number; h: number; nat: number; attrs: Record<string, unknown> }[] = [];
+  c.t.node.forEach((row, offset) => {
+    const pos = c.t.pos + 1 + offset;
+    rows.push({ pos, h: Math.round(domOf(editor, pos)?.offsetHeight ?? ROW_MIN), nat: naturalRowHeight(editor, pos), attrs: row.attrs });
+  });
+  // 이웃 우선: 바로 아래 행, 그다음 위쪽(가까운 순), 그다음 더 아래
+  const order = [...rows.keys()].filter((i) => i !== a).sort((i, j) => {
+    const rank = (k: number) => (k === a + 1 ? 0 : k < a ? 1 + (a - k) / 1000 : 2 + (k - a) / 1000);
+    return rank(i) - rank(j);
+  });
+  const next = rows.map((r) => r.h);
+  if (delta > 0) {
+    next[a] += delta;
+    let need = delta;
+    for (const i of order) {
+      const take = Math.min(need, Math.max(0, next[i] - rows[i].nat));
+      next[i] -= take;
+      need -= take;
+      if (!need) break;
+    }
+  } else {
+    const shrink = Math.min(-delta, Math.max(0, next[a] - rows[a].nat));
+    if (!shrink) return;
+    next[a] -= shrink;
+    if (order.length) next[order[0]] += shrink; // 표 전체 높이 유지
+  }
+  const { state, view } = editor;
+  const sel = state.selection;
+  const tr = state.tr;
+  rows.forEach((r, i) => {
+    if (next[i] !== r.h) tr.setNodeMarkup(r.pos, undefined, { ...r.attrs, tbRowHeight: next[i] });
+  });
+  tr.setNodeMarkup(c.t.pos, undefined, { ...c.t.node.attrs, tbHeight: null });
+  if (sel instanceof CellSelection) tr.setSelection(CellSelection.create(tr.doc, sel.$anchorCell.pos, sel.$headCell.pos));
+  view.dispatch(tr);
+}
+
+/** kind: 너비 w(칸 하나만) / 높이 h(그 칸의 행), delta>0 이면 키움. 이웃이 반대로 보정해 표 전체 크기는 그대로다. */
+function resizeSingleCell(editor: Editor, kind: "w" | "h", delta: number): boolean {
+  const c = tableCtx(editor);
+  if (!c) return false;
+  const sel = editor.state.selection;
+  let rel: number | null = null;
+  if (sel instanceof CellSelection) {
+    const cells: number[] = [];
+    sel.forEachCell((_n, pos) => cells.push(pos - c.start));
+    if (cells.length !== 1) return true; // 여러 칸 선택 시에는 아무것도 하지 않고 키만 소비한다
+    rel = cells[0];
+  } else {
+    const { $from } = sel;
+    for (let d = $from.depth; d > 0; d--) {
+      const name = $from.node(d).type.name;
+      if (name === "tableCell" || name === "tableHeader") { rel = $from.before(d) - c.start; break; }
+    }
+  }
+  if (rel === null) return false;
+  if (kind === "h") { resizeRowWithNeighbour(editor, c, rel, delta); return true; }
+  const cells = measureCells(editor, c);
+  const g = cells?.find((x) => x.rel === rel);
+  if (!cells || !g) return true;
+
+  const axis = kind === "w" ? "x" : "y";
+  const [a0, a1] = axis === "x" ? (["x0", "x1"] as const) : (["y0", "y1"] as const);
+  const min = kind === "w" ? COL_MIN : ROW_MIN;
+  const after = neighbours(cells, g, axis, "after");
+  const before = after ? null : neighbours(cells, g, axis, "before");
+  const nb = after ?? before;
+  if (!nb) return true;
+  if (g[a1] - g[a0] + delta < min || nb.some((n) => n[a1] - n[a0] - delta < min)) return true; // 최소 크기 아래로는 안 줄인다
+
+  if (after) { g[a1] += delta; nb.forEach((n) => { n[a0] += delta; }); }
+  else { g[a0] -= delta; nb.forEach((n) => { n[a1] -= delta; }); }
+
+  const xs = lines(cells.flatMap((x) => [x.x0, x.x1]));
+  const ys = lines(cells.flatMap((x) => [x.y0, x.y1]));
+  if (!tiles(cells, xs, ys)) return true;
+
+  // 경계선 구간으로 표를 다시 만든다.
+  const colW = xs.slice(1).map((x, i) => Math.max(1, Math.round(x - xs[i])));
+  const rowH = ys.slice(1).map((y, i) => Math.max(1, Math.round(y - ys[i])));
+  const { state, view } = editor;
+  const rowType = state.schema.nodes.tableRow;
+  const rowsOut: PMNode[] = [];
+  let targetPos = -1;
+  let pos = c.t.pos + 1;
+  for (let r = 0; r < rowH.length; r++) {
+    const inRow = cells.filter((x) => snap(ys, x.y0) === r).sort((a, b) => a.x0 - b.x0);
+    const made: PMNode[] = [];
+    let cellPos = pos + 1;
+    for (const x of inRow) {
+      const x0 = snap(xs, x.x0), x1 = snap(xs, x.x1), y1 = snap(ys, x.y1);
+      const cell = x.node.type.create({ ...x.node.attrs, colspan: x1 - x0, rowspan: y1 - r, colwidth: colW.slice(x0, x1) }, x.node.content, x.node.marks);
+      if (x === g) targetPos = cellPos;
+      cellPos += cell.nodeSize;
+      made.push(cell);
+    }
+    const row = rowType.create({ tbRowHeight: rowH[r] }, made);
+    pos += row.nodeSize;
+    rowsOut.push(row);
+  }
+  const a = c.t.node.attrs;
+  const table = c.t.node.type.create({ ...a, tbWidth: colW.reduce((p, q) => p + q, 0), tbHeight: null, tbAlign: a.tbAlign === "inline" ? "left" : a.tbAlign }, rowsOut);
+  const tr = state.tr.replaceWith(c.t.pos, c.t.pos + c.t.node.nodeSize, table);
+  if (targetPos >= 0) tr.setSelection(CellSelection.create(tr.doc, targetPos));
+  view.dispatch(tr);
+  return true;
+}
+
+/** Ctrl 키를 다른 키 없이 한 번만 눌렀다 떼면 커서가 있는 칸을 선택한다. */
+function ctrlTapSelectsCell(editor: Editor) {
+  let alone = false;
+  return new Plugin({
+    props: {
+      handleDOMEvents: {
+        keydown: (_view, e) => { alone = e.key === "Control" && !e.repeat; return false; },
+        mousedown: () => { alone = false; return false; },
+        keyup: (_view, e) => {
+          if (e.key !== "Control" || !alone) return false;
+          alone = false;
+          const sel = editor.state.selection;
+          if (sel instanceof CellSelection) return false;
+          const { $from } = sel;
+          for (let d = $from.depth; d > 0; d--) {
+            const name = $from.node(d).type.name;
+            if (name === "tableCell" || name === "tableHeader") {
+              editor.view.dispatch(editor.state.tr.setSelection(CellSelection.create(editor.state.doc, $from.before(d))));
+              return false;
+            }
+          }
+          return false;
+        },
+      },
+    },
+  });
+}
+
 /**
  * 표 전체를 선택한 상태에서 폭·높이를 키우거나 줄인다.
  * 열 너비·행 높이가 이미 정해져 있으면 그 합이 표 크기의 하한이 되므로, 같은 비율로 함께 늘이고 줄인다.
@@ -346,6 +567,10 @@ export const RichTable = Table.extend({
     };
   },
 
+  addProseMirrorPlugins() {
+    return [...(this.parent?.() ?? []), ctrlTapSelectsCell(this.editor)];
+  },
+
   addKeyboardShortcuts() {
     const withTable = (fn: (t: NonNullable<ReturnType<typeof findTable>>) => boolean) => () => {
       const t = findTable(this.editor);
@@ -370,6 +595,11 @@ export const RichTable = Table.extend({
         selectWholeTable(this.editor, t);
         return true;
       }),
+      // Alt+방향키: 커서가 있는(Ctrl 로 선택한) 칸 하나만 크기를 바꾼다. 옆 칸이 보정해 표 전체 크기는 그대로다.
+      "Alt-ArrowRight": () => resizeSingleCell(this.editor, "w", STEP_W),
+      "Alt-ArrowLeft": () => resizeSingleCell(this.editor, "w", -STEP_W),
+      "Alt-ArrowDown": () => resizeSingleCell(this.editor, "h", STEP_H),
+      "Alt-ArrowUp": () => resizeSingleCell(this.editor, "h", -STEP_H),
       "Mod-ArrowLeft": resizeKey(-STEP_W, 0),
       "Mod-ArrowRight": resizeKey(STEP_W, 0),
       "Mod-ArrowUp": resizeKey(0, -STEP_H),
