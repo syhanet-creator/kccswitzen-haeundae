@@ -38,6 +38,13 @@ export const CURRENCIES = [
 ] as const;
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
+const positive = (v: number | null) => (v !== null && v > 0 ? v : null); // 자료원이 모르는 값을 0 으로 주는 경우를 걸러낸다
+/** 그래프 점을 최대 max 개로 줄이고 소수 둘째 자리까지만 남긴다(응답 크기 절약). */
+export function thin(values: number[], max = 90): number[] {
+  if (values.length <= max) return values.map(r2);
+  const step = (values.length - 1) / (max - 1);
+  return Array.from({ length: max }, (_, i) => r2(values[Math.round(i * step)]));
+}
 const toNum = (v: unknown): number | null => {
   if (typeof v === "number") return Number.isFinite(v) ? v : null;
   if (typeof v === "string") { const n = Number(v.replace(/,/g, "").trim()); return v.trim() !== "" && Number.isFinite(n) ? n : null; }
@@ -105,7 +112,7 @@ export function parseNaverIndex(json: NaverIndex): { price: number; change: numb
   const status = json.marketStatus?.toUpperCase();
   return {
     price, change, pct,
-    high: toNum(json.highPrice), low: toNum(json.lowPrice),
+    high: positive(toNum(json.highPrice)), low: positive(toNum(json.lowPrice)),
     time: json.localTradedAt ?? null,
     open: status ? status === "OPEN" : null,
   };
@@ -132,10 +139,10 @@ export async function getIndices(): Promise<Result<Quote>> {
     const pct = n ? n.pct : prev ? ((price - prev) / prev) * 100 : 0;
     return {
       id: ix.id, name: ix.name, price: r2(price), change: r2(change), pct: r2(pct),
-      prevClose: prev === null ? null : r2(prev), high: n?.high ?? y?.high ?? null, low: n?.low ?? y?.low ?? null,
+      prevClose: prev === null ? null : r2(prev), high: positive(n?.high ?? null) ?? (y?.high != null ? r2(y.high) : null), low: positive(n?.low ?? null) ?? (y?.low != null ? r2(y.low) : null),
       time: n?.time ?? y?.time ?? null,
       state: n?.open != null ? (n.open ? "open" : "closed") : krxOpen() ? "open" : "closed",
-      spark: y?.spark ?? [], source: n ? "naver" : "yahoo",
+      spark: thin(y?.spark ?? []), source: n ? "naver" : "yahoo",
     };
   }))).filter((q): q is Quote => q !== null);
   return { items, errors, fetchedAt: new Date().toISOString() };
@@ -157,7 +164,7 @@ export async function getFx(): Promise<Result<Quote>> {
         id: c.id, name: c.name, sub: c.sub, flag: c.flag, price: r2(price), prevClose: prev === null ? null : r2(prev),
         change: prev === null ? 0 : r2(price - prev), pct: prev ? r2(((price - prev) / prev) * 100) : 0,
         high: y.high === null ? null : r2(y.high * c.mult), low: y.low === null ? null : r2(y.low * c.mult),
-        time: y.time, state: "live", spark: y.spark.map((v) => v * c.mult), source: "yahoo",
+        time: y.time, state: "live", spark: thin(y.spark.map((v) => v * c.mult)), source: "yahoo",
       });
     } catch (e) { errors.push(`${c.id} yahoo: ${(e as Error).message}`); missing.push(c); }
   }));
