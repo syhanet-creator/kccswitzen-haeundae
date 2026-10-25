@@ -1,8 +1,21 @@
 "use client";
 import { useEffect, useState } from "react";
 import DOMPurify from "dompurify";
+import { isAllowedFontFamily } from "@/lib/fonts";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** 표 요소에만 허용하는 스타일(폭·높이·배치·테두리). */
+const TABLE_STYLE = [
+  /^width\s*:\s*\d{2,4}(\.\d+)?px$/i,
+  /^height\s*:\s*\d{2,4}(\.\d+)?px$/i,
+  /^float\s*:\s*(left|right)$/i,
+  /^margin-(left|right)\s*:\s*(auto|0|0px|16px)$/i,
+  /^margin-bottom\s*:\s*8px$/i,
+  /^--tb-style\s*:\s*(solid|dashed|dotted|double|none)$/i,
+  /^--tb-width\s*:\s*\d(\.\d)?px$/i,
+  /^--tb-color\s*:\s*#[0-9a-f]{3,8}$/i,
+];
 
 let hooked = false;
 function setupHooks() {
@@ -19,12 +32,14 @@ function setupHooks() {
       if (!node.getAttribute("src")?.startsWith(`${base}/storage/`)) node.remove();
     }
     // 인라인 스타일은 글자색·형광펜·정렬·글자 크기·글꼴만 허용 (화면을 덮는 스타일 등 차단)
+    const isTable = node.tagName === "TABLE";
     const st = node.getAttribute?.("style");
     if (st) {
       const keep = st.split(";").map((d) => d.trim()).filter((d) => !/url\(|expression/i.test(d) && (
         /^(color|background-color|text-align)\s*:\s*[#\w(),.\s%-]+$/i.test(d) ||
         /^font-size\s*:\s*\d{1,2}px$/i.test(d) ||
-        /^font-family\s*:\s*(serif|sans-serif|monospace|cursive)$/i.test(d)));
+        /^font-family\s*:/i.test(d) && isAllowedFontFamily(d.slice(d.indexOf(":") + 1)) ||
+        (isTable && TABLE_STYLE.some((re) => re.test(d)))));
       if (keep.length) node.setAttribute("style", keep.join("; "));
       else node.removeAttribute("style");
     }
