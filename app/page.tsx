@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BOARDS } from "@/lib/boards";
 import { clusterArticles, fetchNews, timeAgo, type Article } from "@/lib/news";
+import HomeTabs from "@/components/HomeTabs";
 
 export const revalidate = 900;
 
@@ -88,33 +89,37 @@ export default async function Home() {
           </nav>
         </aside>
 
-        <section className="grid min-w-0 items-start gap-6 xl:grid-cols-5">
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm xl:col-span-3">
-            <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-              <h2 className="whitespace-nowrap text-lg font-bold">📰 해운대구 주요 뉴스</h2>
-              <span className="text-xs text-gray-400">최근 7일 · 유사 기사는 + 로 펼치기</span>
-            </div>
-            <Headlines items={main} max={20} empty="뉴스를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요." />
-          </div>
-
-          <div className="grid content-start gap-4 xl:col-span-2">
-            {TOPICS.map((t, i) => (
-              <div key={t.key} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                <div className="flex items-center gap-2">
-                  <span className={`flex h-8 w-8 items-center justify-center rounded-lg text-lg ${t.color}`}>{t.icon}</span>
-                  <h2 className="font-bold">{t.name}</h2>
-                </div>
-                <Headlines items={topics[i]} max={4} empty="최근 관련 뉴스가 없습니다." />
-                <div className="mt-1 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
-                  {t.links.map(([name, href]) => (
-                    <a key={href} href={href} target="_blank" rel="noopener noreferrer"
-                      className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600 hover:bg-gray-200">{name} ↗</a>
-                  ))}
-                </div>
+        <HomeTabs
+          news={
+          <section className="grid min-w-0 items-start gap-6 xl:grid-cols-5">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm xl:col-span-3">
+              <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                <h2 className="whitespace-nowrap text-lg font-bold">📰 해운대구 주요 뉴스</h2>
+                <span className="text-xs text-gray-400">최근 7일 · 유사 기사는 + 로 펼치기</span>
               </div>
-            ))}
-          </div>
-        </section>
+              <Headlines items={main} max={20} empty="뉴스를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요." />
+            </div>
+
+            <div className="grid content-start gap-4 xl:col-span-2">
+              {TOPICS.map((t, i) => (
+                <div key={t.key} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-lg text-lg ${t.color}`}>{t.icon}</span>
+                    <h2 className="font-bold">{t.name}</h2>
+                  </div>
+                  <Headlines items={topics[i]} max={4} empty="최근 관련 뉴스가 없습니다." />
+                  <div className="mt-1 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+                    {t.links.map(([name, href]) => (
+                      <a key={href} href={href} target="_blank" rel="noopener noreferrer"
+                        className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600 hover:bg-gray-200">{name} ↗</a>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+          }
+        />
       </div>
 
     </div>
