@@ -50,7 +50,7 @@ function Headlines({ items, max, empty }: { items: Article[]; max: number; empty
 
 export default async function Home() {
   const [main, ...topics] = await Promise.all([
-    fetchNews("해운대구", 40, LOCAL),
+    fetchNews("해운대구", 60, LOCAL),
     ...TOPICS.map((t) => fetchNews(t.query, 20, LOCAL, 14)),
   ]);
 
@@ -62,13 +62,13 @@ export default async function Home() {
         <p className="mt-2 text-sm text-blue-50">이웃과 소통하고, 우리 동네 소식을 한눈에 확인하세요.</p>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-5">
+      <section className="grid items-start gap-6 lg:grid-cols-5">
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-3">
           <div className="mb-1 flex items-center justify-between">
             <h2 className="text-lg font-bold">📰 해운대구 주요 뉴스</h2>
-            <span className="text-xs text-gray-400">최근 7일 · 구글 뉴스</span>
+            <span className="text-xs text-gray-400">최근 7일 · 유사 기사는 묶음 표시</span>
           </div>
-          <Headlines items={main} max={12} empty="뉴스를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요." />
+          <Headlines items={main} max={20} empty="뉴스를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요." />
         </div>
 
         <div className="grid content-start gap-4 lg:col-span-2">
