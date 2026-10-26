@@ -130,19 +130,31 @@ export default function RichEditor({ userId, onReady, onChange, onError }: Props
   const [tablePanel, setTablePanel] = useState(false);
   const [symbols, setSymbols] = useState(false);
 
+  /**
+   * 사진을 여러 장 넣는다. 업로드는 동시에 하고, 본문에는 고른 순서대로 넣는다.
+   * (사진을 넣으면 그 사진이 '선택된 상태'가 되어 다음 사진이 덮어쓰므로, 사진마다 뒤에 빈 문단을 두고 커서를 옮긴다.)
+   */
   async function insertImages(files: File[]) {
     const images = files.filter((f) => f.type.startsWith("image/"));
     if (images.length === 0) return;
     setBusy(true);
-    for (const f of images) {
-      try {
+    const results = await Promise.allSettled(
+      images.map(async (f) => {
         const bad = checkFile(f);
         if (bad) throw new Error(bad);
-        const up = await uploadFile(userId, f);
-        editorRef.current?.chain().focus().setImage({ src: up.url, alt: f.name }).run();
-      } catch (e) {
-        onError(e instanceof Error ? e.message : "이미지 업로드에 실패했습니다.");
+        return { up: await uploadFile(userId, f), name: f.name };
+      }),
+    );
+    for (const r of results) {
+      if (r.status === "rejected") {
+        onError(r.reason instanceof Error ? r.reason.message : "이미지 업로드에 실패했습니다.");
+        continue;
       }
+      editorRef.current
+        ?.chain()
+        .focus()
+        .insertContent([{ type: "image", attrs: { src: r.value.up.url, alt: r.value.name } }, { type: "paragraph" }])
+        .run();
     }
     setBusy(false);
   }

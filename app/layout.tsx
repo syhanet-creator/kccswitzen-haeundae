@@ -28,6 +28,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <head>
+        {/* 브라우저의 '앱 설치 가능' 신호는 로딩 초반에 한 번만 오므로, 화면이 준비되기 전에 먼저 받아 둔다. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.__installPrompt=null;window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__installPrompt=e;window.dispatchEvent(new Event("installprompt-ready"))});`,
+          }}
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         {/* 글꼴마다 따로 불러와 하나가 실패해도 나머지는 적용된다. 실제 글자 파일은 쓰일 때만 내려받는다. */}
