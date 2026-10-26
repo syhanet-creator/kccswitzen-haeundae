@@ -1,5 +1,6 @@
 "use client";
 import { use, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { notFound, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { STATUS_LABEL, dealOf, isBoard } from "@/lib/boards";
@@ -78,6 +79,9 @@ function Detail({ board, id, me }: { board: string; id: number; me: Profile }) {
               {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           ) : <span className="text-sm text-blue-600">{STATUS_LABEL[post.status]}</span>)}
+          {post.author_id === me.id && (
+            <Link href={`/${board}/${id}/edit`} className="rounded-lg border border-gray-200 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50">수정</Link>
+          )}
           {(post.author_id === me.id || isAdmin) && (
             <button className="text-sm text-red-600" onClick={async () => {
               if (!confirm("삭제할까요?")) return;
